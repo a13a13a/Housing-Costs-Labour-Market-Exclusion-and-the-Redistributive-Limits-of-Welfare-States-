@@ -1,0 +1,97 @@
+# ==============================================================================
+# VARIABLE MAPPING SCRIPT: Table A5 (EU-SILC Variable Construction & Harmonisation)
+# ==============================================================================
+
+library(stargazer)
+
+cat("\n========================================================\n")
+cat("      TABLE A5: EU-SILC VARIABLE CONSTRUCTION MAPPING   \n")
+cat("========================================================\n")
+
+# 1. Construct the Variable Mapping Data Frame (100% aligned with Master Script)
+table_a5_df <- data.frame(
+  Indicator = c(
+    "Gini Coefficient (Gini)",
+    "S80/S20 Ratio (S8020)",
+    "Housing Cost Overburden (House)",
+    "Unemployment Rate (Unemp)",
+    "Non-Pension Social Benefits (SocBen)",
+    "Pensions Share (Pens)",
+    "Tertiary Education (Tert)",
+    "Lone-Parent Households (LoneP)",
+    "Heating Deprivation (Heat)",
+    "Low Work Intensity (LWI)"
+  ),
+  Unit = c(
+    "Index (0-100 scale)",
+    "Ratio (top/bottom quintile)",
+    "Percentage (% of population)",
+    "Percentage (% of active pop.)",
+    "Percentage (% of disposable income)",
+    "Percentage (% of disposable income)",
+    "Percentage (% of pop. aged 25-64)",
+    "Percentage (% of households)",
+    "Percentage (% of population)",
+    "Percentage (% of pop. aged 0-64)"
+  ),
+  EUSILC_Variables = c(
+    "HX090 (equivalised disposable income)",
+    "HX090 (equivalised disposable income)",
+    "HH070 (monthly housing costs), HY020 (disposable income), HY070G/N (housing allowances)",
+    "PL211A-PL211L (monthly activity), PL070/PL072 or PL073-PL076 (months worked), PL080 (months unemp.), RB080/RX010/RX020 (age)",
+    "HY050G/N (family), HY060G/N (social excl.), HY070G/N (housing), HY080G/N (inter-household cash transfers); denominator: HY020",
+    "PY100G/N (old-age benefits), PY110G/N (survivors' benefits); denominator: HY020",
+    "PE041 / PE040 (highest ISCED attained), RB080 / RX010 / RX020 (age)",
+    "HX060 (household type: single parent with dependent children, code = 9)",
+    "HH050 (ability to keep home adequately warm, code = 2)",
+    "PL211A-PL211L, PL070/PL072 or PL073-PL076 (months worked), PL030/PL031 (status), PY100G/N (pensions), RB080/RX010/RX020 (age)"
+  ),
+  Survey_Weight = c(
+    "RB050 (personal cross-sectional)",
+    "RB050 (personal cross-sectional)",
+    "RB050 (personal cross-sectional)",
+    "RB050 (personal cross-sectional)",
+    "RB050 (person-weighted macro ratio)",
+    "RB050 (person-weighted macro ratio)",
+    "RB050 (personal cross-sectional)",
+    "DB090 (household; fallback: RB050)",
+    "RB050 (personal cross-sectional)",
+    "RB050 (personal cross-sectional)"
+  ),
+  Harmonisation_Notes = c(
+    "Weighted Lorenz-curve Gini computed over positive personal weights (RB050 > 0) using HX090 and scaled 0-100.",
+    "Ratio of RB050-weighted sum of HX090 in top 20% to bottom 20% of national distribution.",
+    "Annualised net housing costs (HH070*12 - HY070) > 40% of net disposable income (HY020 - HY070); missing HY020 imputed via HX090*HX050.",
+    "RB050-weighted mean of individual unemployed-to-active months ratio (u_m / lf_m) over the 12-month reference period for individuals aged 15-74.",
+    "Macro ratio of weighted sum of household non-pension social transfers (HY050-HY080) to total disposable household income (HY020), in percent.",
+    "Personal old-age and survivors' pensions aggregated to household level; macro ratio of weighted pension sum to total HY020, in percent.",
+    "Bridged across ISCED-1997 (PE040 >= 5) and ISCED-2011 (PE041/PE040 >= 500) for ages 25-64; Malta 2020-2021 5-year age brackets mapped to midpoints.",
+    "Share of lone-parent households (HX060 = 9) among deduplicated households (HB030/RX030).",
+    "Binary deprivation indicator (HH050 = 2) aggregated to national population shares.",
+    "Bottom-up household work intensity (< 0.20) for adults aged 18-64 (excluding students aged 18-24 and pensioners), aggregated over population aged 0-64."
+  ),
+  stringsAsFactors = FALSE
+)
+
+colnames(table_a5_df) <- c(
+  "Indicator (Code)",
+  "Measurement Unit",
+  "EU-SILC Target Variables",
+  "Survey Weight",
+  "Cross-Wave Harmonisation & Construction Notes"
+)
+
+# 2. Export Table A5 to Word (.doc)
+out_tableA5_file <- "TableA5_Variable_Mapping.doc"
+
+stargazer(table_a5_df,
+          type = "html",
+          out = out_tableA5_file,
+          summary = FALSE,
+          rownames = FALSE,
+          title = "Table A5: Variable Definitions, EU-SILC Target Variables, Weights, and Cross-Wave Harmonisation",
+          notes = "Notes: All microdata indicators are aggregated from the Eurostat EU-SILC cross-sectional UDB files (2004-2024) using official cross-sectional weights. Variable codes follow standard Eurostat EU-SILC nomenclature (DB/HB = Household Register/Basic, HH/HY = Household Data/Income, RB = Personal Register, PE/PL/PY = Personal Education/Labour/Income, HX/RX = Derived Variables).")
+
+cat("\n--------------------------------------------------------\n")
+cat(" SUCCESS: Table A5 exported to:", out_tableA5_file, "\n")
+cat("--------------------------------------------------------\n")
