@@ -181,7 +181,7 @@ for (cntry in countries) {
     p_work <- p_with_hid %>% left_join(r %>% select(rb030, age, w_ind), by=c("pb030"="rb030"))
     
     if (has_data_211) {
-      p_lwi <- p_work %>% filter(age >= 18 & age <= 59) %>% mutate(is_student = ifelse(age >= 18 & age <= 24 & !is.na(pl031_val) & pl031_val == 3, 1, 0)) %>% filter(is_student == 0)
+      p_lwi <- p_work %>% filter(age >= 18 & age <= 64) %>% mutate(is_student = ifelse(age >= 18 & age <= 24 & !is.na(pl031_val) & pl031_val == 3, 1, 0), is_pensioner = ifelse(py100_val > 0 | (!is.na(pl031_val) & pl031_val == 4), 1, 0)) %>% filter(is_student == 0 & is_pensioner == 0)
       p_lwi$act_m <- rowSums(sapply(p_lwi[month_cols_211], function(x) as_num(x) %in% c(1,2,3,4)), na.rm=T)
       lwi_hh <- p_lwi %>% group_by(hid) %>% summarise(act_hh = sum(act_m, na.rm=T), pot_hh = n() * 12, .groups="drop") %>% mutate(lwi_val = ifelse(pot_hh > 0 & is.finite(act_hh / pot_hh), act_hh / pot_hh, NA))
       
@@ -194,8 +194,7 @@ for (cntry in countries) {
                            (sum(p_unemp$u_rate_ind * p_unemp$w_ind, na.rm = TRUE) / sum(p_unemp$w_ind[!is.na(p_unemp$u_rate_ind)], na.rm = TRUE)) * 100, NA)
       
     } else if (has_data_pl070) {
-      p_lwi <- p_work %>% filter(age >= 18 & age <= 59) %>% mutate(is_student = ifelse(age >= 18 & age <= 24 & !is.na(pl031_val) & pl031_val == 3, 1, 0)) %>% filter(is_student == 0)
-      p_lwi$act_m <- pmin(12, rowSums(cbind(coalesce(p_lwi$pl070_val, 0), coalesce(p_lwi$pl072_val, 0)), na.rm=TRUE))
+      p_lwi <- p_work %>% filter(age >= 18 & age <= 64) %>% mutate(is_student = ifelse(age >= 18 & age <= 24 & !is.na(pl031_val) & pl031_val == 3, 1, 0), is_pensioner = ifelse(py100_val > 0 | (!is.na(pl031_val) & pl031_val == 4), 1, 0)) %>% filter(is_student == 0 & is_pensioner == 0)      p_lwi$act_m <- pmin(12, rowSums(cbind(coalesce(p_lwi$pl070_val, 0), coalesce(p_lwi$pl072_val, 0)), na.rm=TRUE))
       lwi_hh <- p_lwi %>% group_by(hid) %>% summarise(act_hh = sum(act_m, na.rm=T), pot_hh = n() * 12, .groups="drop") %>% mutate(lwi_val = ifelse(pot_hh > 0 & is.finite(act_hh / pot_hh), act_hh / pot_hh, NA))
       
       p_unemp <- p_work %>% filter(age >= 15 & age <= 74)
@@ -240,8 +239,7 @@ for (cntry in countries) {
     final <- r %>% left_join(h_final, by="hid") %>% left_join(p_pens, by="hid") %>% left_join(lwi_hh, by="hid")
     
     # --- CALCULATE LWI ---
-    df_lwi <- final %>% filter(age < 60, !is.na(w_ind), w_ind > 0, !is.na(lwi_val))
-    
+    df_lwi <- final %>% filter(age < 65, !is.na(w_ind), w_ind > 0, !is.na(lwi_val))    
     if(nrow(df_lwi) > 0) {
       df_lwi <- df_lwi %>% mutate(is_lwi = ifelse(lwi_val < 0.20, 1, 0))
       
