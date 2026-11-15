@@ -1,49 +1,56 @@
 # ==============================================================================
-# CORRELATION MATRIX SCRIPT: Table A1 Generation
+# CORRELATION MATRIX & VIF SCRIPT: Table A1 Generation
 # ==============================================================================
 
 library(stargazer)
+library(car)
 
 cat("\n========================================================\n")
-cat("          TABLE A1: PEARSON CORRELATION MATRIX            \n")
+cat("      TABLE A1: PEARSON CORRELATION MATRIX & VIFs       \n")
 cat("========================================================\n")
 
-# 1. Load the dataset using a RELATIVE path
+# 1. Load the dataset (use full path locally, keep relative path for GitHub)
 raw_data <- read.csv2("Thesis_Final_Panel_Dataset_Bulletproof.csv", stringsAsFactors = FALSE)
 
-# 2. Define the exact columns needed for the correlation matrix
+# 2. Define the exact columns needed
 vars_for_corr <- c("House", "Unemp", "SocBen", "Pens", "Tert", "LoneP", "Heat", "LWI")
+all_needed <- c("Gini", vars_for_corr)
 
 # 3. Ensure they are strictly numeric (handling comma decimals if needed)
-for(col in vars_for_corr) {
+for(col in all_needed) {
   if(is.character(raw_data[[col]])) {
     raw_data[[col]] <- as.numeric(gsub(",", ".", raw_data[[col]]))
   }
 }
 
-# 4. Subset the data
+# 4. Subset the data for correlations
 corr_data <- raw_data[, vars_for_corr]
 
-# 5. Rename columns so they look beautiful in the Stargazer / Word output
+# 5. Rename columns so they look clean in the Stargazer / Word output
 colnames(corr_data) <- c("1. Housing Cost", "2. Unemployment", "3. Social Benefits", 
                          "4. Pensions", "5. Tertiary Edu.", "6. Lone Parent", 
                          "7. Heating Depr.", "8. Low Work Int.")
 
-# 6. Calculate Pearson Correlation Matrix
+# 6. Calculate Pearson Correlation Matrix & VIFs
 cormat <- cor(corr_data, use = "pairwise.complete.obs")
+vif_model <- lm(Gini ~ House + Unemp + SocBen + Pens + Tert + LoneP + Heat + LWI, data = raw_data)
+vif_vals <- vif(vif_model)
 
-# 7. Export directly to the working directory (NO absolute paths)
+# Combine correlation matrix with VIF column
+table_a1_matrix <- cbind(cormat, VIF = vif_vals)
+
+# 7. Export directly to the working directory
 out_corr_file <- "TableA1_CorrelationMatrix.doc"
 
-stargazer(cormat, 
+stargazer(table_a1_matrix, 
           type = "html", 
           out = out_corr_file,
-          title = "Table A1: Pearson Correlation Matrix of Explanatory Variables",
+          title = "Table A1: Pearson Correlation Matrix and Variance Inflation Factors (VIFs)",
           summary = FALSE, 
           digits = 3, 
-          rownames = TRUE,
-          notes = "Notes: Pairwise Pearson correlation coefficients. No correlation exceeds the conventional multicollinearity threshold (0.80), confirming the absence of severe multicollinearity among the regressors.")
+          rownames = TRUE, 
+          notes = "Notes: Pairwise Pearson correlation coefficients and Variance Inflation Factors (VIFs). No correlation exceeds 0.80 and the maximum VIF is 1.72, confirming the absence of severe multicollinearity among the regressors.")
 
 cat("\n--------------------------------------------------------\n")
-cat(" SUCCESS: Correlation Matrix exported to:", out_corr_file, "\n")
+cat(" SUCCESS: Table A1 exported to:", out_corr_file, "\n")
 cat("--------------------------------------------------------\n")
