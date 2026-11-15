@@ -66,18 +66,18 @@ cat("========================================================\n")
 
 # ---- maxlag = 1 ----
 cat("\n--- Gini Model (TWFE): maxlag = 1 ---\n")
-print(coeftest(twfe_gini, vcov. = function(x) vcovSCC(x, type = "HC1", maxlag = 1)))
+print(coeftest(twfe_gini, vcov. = function(x) vcovSCC(x, type = "HC3", maxlag = 1)))
 
 cat("\n--- S80/20 Model (TWFE): maxlag = 1 ---\n")
-print(coeftest(twfe_s8020, vcov. = function(x) vcovSCC(x, type = "HC1", maxlag = 1)))
+print(coeftest(twfe_s8020, vcov. = function(x) vcovSCC(x, type = "HC3", maxlag = 1)))
 
 # ---- maxlag = 2 (Το βασικό που θα μπει στον Πίνακα A3) ----
 cat("\n--- Gini Model (TWFE): maxlag = 2 ---\n")
-robust_gini_twfe_DK2 <- coeftest(twfe_gini, vcov. = function(x) vcovSCC(x, type = "HC1", maxlag = 2))
+robust_gini_twfe_DK2 <- coeftest(twfe_gini, vcov. = function(x) vcovSCC(x, type = "HC3", maxlag = 2))
 print(robust_gini_twfe_DK2)
 
 cat("\n--- S80/20 Model (TWFE): maxlag = 2 ---\n")
-robust_s8020_twfe_DK2 <- coeftest(twfe_s8020, vcov. = function(x) vcovSCC(x, type = "HC1", maxlag = 2))
+robust_s8020_twfe_DK2 <- coeftest(twfe_s8020, vcov. = function(x) vcovSCC(x, type = "HC3", maxlag = 2))
 print(robust_s8020_twfe_DK2)
 
 # ---- maxlag = 3 ----
