@@ -1,48 +1,42 @@
-# Replication Package for: "Housing Costs, Labour Market Exclusion and the Redistributive Limits of Welfare States: Evidence from a 21–Year European Macro Panel"
+# Replication Package: Housing Costs, Labour Market Exclusion and the Redistributive Limits of Welfare States
 
-## 1. Overview
-This replication package contains the full suite of R scripts used for data construction, validation, econometric modeling, and robustness checks for the manuscript submitted to the *International Journal of Social Economics*. 
+This repository contains the data and R code required to replicate the findings, tables, and econometric models presented in the manuscript: *"Housing Costs, Labour Market Exclusion and the Redistributive Limits of Welfare States: Evidence from a 21–Year European Macro Panel"* (International Journal of Social Economics).
 
-The package is designed to provide 100% methodological transparency, allowing reviewers and readers to perfectly trace the steps from raw microdata aggregation to the final empirical tables presented in the paper.
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.XXXXXXX.svg)](https://doi.org/10.5281/zenodo.XXXXXXX) 
+*(Note: Replace the badge above with your actual Zenodo DOI once you archive the repository).*
 
-## 2. Data Availability & Confidentiality
-Please note that the core dataset relies on the **European Union Statistics on Income and Living Conditions (EU-SILC)** microdata. Due to strict data protection regulations and non-disclosure agreements enforced by Eurostat, the **raw microdata files (D, H, R, P files) cannot be shared publicly**. 
+## 1. Data Availability Statement
+The raw microdata used to construct the panel (European Union Statistics on Income and Living Conditions - EU-SILC) are confidential and subject to strict access and non-disclosure agreements enforced by Eurostat. Consequently, the raw micro-files cannot be shared publicly in this repository. 
 
-However, to facilitate full reproducible research, we provide the custom, bottom-up data-aggregation R script used to generate the macroeconomic variables, alongside the final aggregated macro-panel dataset (`Thesis_Final_Panel_Dataset_Bulletproof.csv`). This allows researchers to independently run all econometric models and validation checks without needing access to the restricted microdata.
+However, to fully support reproducible research, this repository provides:
+1. The **final aggregated macro-panel dataset** (`Thesis_Final_Panel_Dataset_Bulletproof.csv`) containing all variables used in the econometric estimations (N=32 countries, T=21 years).
+2. The **Master Aggregation Script**, ensuring full methodological transparency regarding how raw EU-SILC microdata were cleaned, filtered, and aggregated into the final macroeconomic variables.
 
-## 3. Software Requirements
-The code was written and tested in **R**. To execute the scripts seamlessly, please ensure the following R packages are installed:
-- Data Manipulation: `dplyr`, `tidyr`, `stringr`, `data.table`
-- API & Validation: `eurostat`
-- Econometrics: `plm`, `lmtest`, `sandwich`, `car`
-- Output & Formatting: `stargazer`
+## 2. Repository Structure & Scripts
 
-## 4. File Manifest
-The repository contains the following scripts, structured in logical order of execution:
+### 📁 Data
+* `Thesis_Final_Panel_Dataset_Bulletproof.csv`: The final unbalanced macro-panel dataset (2004–2024).
 
-### A. Data Construction & Validation
-- **`EUSILC DATABASE ALL YEARS`**: The master script that processes the raw EU-SILC microdata. It applies necessary patches, standardises variables, and applies cross-sectional weights to construct the national macro-aggregates.
-- **`VERIFICATION EUROSTAT`**: An automated validation script that queries the official Eurostat API to download official macro-aggregates and calculates the Mean Absolute Error (MAE) against our constructed dataset.
+### 📁 Scripts
+* **`Master_Script_Bulletproof.R`**: The core data-aggregation pipeline. Extracts, harmonises, and aggregates raw EU-SILC microdata (files D, H, R, P) into national indicators, computing survey-weighted Gini, S80/S20, housing cost overburden, and labour market metrics.
+* **`Eurostat_API_Validation.R`**: Benchmarks the custom-aggregated variables against official published Eurostat macroeconomic aggregates via the Eurostat API, calculating the Mean Absolute Error (MAE) for core indicators.
+* **`Main_Econometric_Models.R`**: Contains the code to replicate the baseline country fixed-effects models (Table 2) and the two-way fixed-effects robustness checks with Driscoll-Kraay standard errors (Table A3).
+* **`TableA1_CorrelationMatrix_VIF.R`**: Generates Table A1, computing the Pearson correlation matrix and the Variance Inflation Factors (VIFs) to test for multicollinearity.
+* **`TableA2_DataCoverage.R`**: Generates Table A2, documenting the available time period and total country-year observations to explain the unbalanced panel structure.
+* **`TableA4_Sensitivity_DK_Lags.R`**: Generates Table A4, conducting the sensitivity analysis for the two-way fixed effects models using alternative Driscoll-Kraay lag bandwidths (`maxlag = 1` and `maxlag = 3`).
+* **`TableA5_Variable_Mapping.R`**: Generates Table A5, detailing the exact EU-SILC target variables, survey weights, and cross-wave harmonisation rules used for each constructed indicator.
+* **`System_GMM_Attempt.R`**: Contains the initial two-step System GMM models. Included for full transparency to document the instrument proliferation issue (>270 instruments, singular covariance matrices, uninformative Sargan tests) that justified the adoption of the parsimonious Fixed Effects specification, as discussed in the manuscript's Limitations section.
 
-### B. Summary Statistics & Main Econometric Analysis
-- **`TABLE 1 SUMMARY STATISTICS`**: Calculates and exports the summary statistics for the full unbalanced panel (Table 1).
-- **`ECONOMETRIC MODEL`**: Contains the baseline one-way fixed effects models with 1-year lagged independent variables. It applies Arellano clustered standard errors and directly exports Table 2.
+## 3. How to Run the Code
+1. Clone or download this repository to your local machine.
+2. Ensure that the `Thesis_Final_Panel_Dataset_Bulletproof.csv` file is in your working directory.
+3. If running the `Master_Script_Bulletproof.R`, note that you will need to map the `base_path` to your own locally stored EU-SILC UDB `.csv` files.
+4. For all other scripts (Tables and Models), simply source the script in R. They are fully self-contained and will automatically read the provided `.csv` panel dataset and output the respective `.doc` tables or console summaries.
 
-### C. Diagnostics & Robustness Checks (Requested during Peer Review)
-- **`DISCOLL KRAAY STANDARD ERRORS`**: Estimates the robustness check models using Two-Way Fixed Effects (Country & Year FE), executes Pesaran CD diagnostic tests, performs a sensitivity analysis on lag structures (`maxlag = 1, 2, 3`) for Driscoll-Kraay standard errors, and robustly exports Table A3.
-- **`DIAGNOSTICS ECONOMETRICS TESTS`**: Executes formal diagnostic tests for heteroskedasticity (Breusch-Pagan) and serial correlation (Breusch-Godfrey/Wooldridge).
-- **`DIAGNOSTICS HAUSMAN VIFS`**: Executes the Hausman specification test and calculates the Variance Inflation Factor (VIF) to rule out multicollinearity.
-- **`ROBUSTNESS FAILED GMM`**: Provided for absolute transparency. This script contains the initially attempted two-step System GMM dynamic panel model, which was ultimately abandoned due to severe instrument proliferation.
+## 4. Software Dependencies
+The code was written and tested in **R**. The following R packages are required:
+* Data manipulation & API: `dplyr`, `tidyr`, `stringr`, `data.table`, `eurostat`
+* Econometrics & Panel Data: `plm`, `car`, `lmtest`, `sandwich`
+* Output & Formatting: `stargazer`
 
-### D. Appendix Tables
-- **`TABLE A1 CORRELATION MATRIX`**: Generates and exports the Pearson Correlation Matrix ensuring no pairwise correlation exceeds multicollinearity thresholds (Table A1).
-- **`TABLE A2 DATA COVERAGE`**: Generates and exports the unbalanced panel coverage map and observations (T) per country (Table A2).
-
-## 5. Instructions for Use
-1. Save all scripts and the `Thesis_Final_Panel_Dataset_Bulletproof.csv` file in the same local directory.
-2. Set that directory as your Working Directory in R (`setwd("path/to/folder")`) or open the folder as an RStudio Project.
-3. You can execute any script from sections B, C, and D directly, as they seamlessly load the provided `.csv` dataset using relative paths.
-4. The tables (Table 1, Table 2, A1, A2, A3) will be automatically exported to your working directory as formatted `.doc` files.
-
-## 6. Contact
-For any questions regarding the code or the dataset, please contact the corresponding author.
+*Note: The `plm::vcovSCC()` function is used for the Driscoll-Kraay robust standard errors (Millo, 2017).*
