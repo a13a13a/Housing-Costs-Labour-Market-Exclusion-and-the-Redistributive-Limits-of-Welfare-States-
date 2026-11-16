@@ -1,0 +1,127 @@
+# ==============================================================================
+# VALIDATION & ROBUSTNESS SCRIPT
+# ==============================================================================
+library(plm)
+library(eurostat)
+library(dplyr)
+library(stargazer)
+
+cat("\n========================================================\n")
+cat("  1. LOAD CUSTOM PANEL & FETCH EUROSTAT DATA\n")
+cat("========================================================\n")
+
+# Load the custom macro-panel dataset (assumes file is in the working directory)
+raw_data <- read.csv2("Thesis_Final_Panel_Dataset.csv", stringsAsFactors = FALSE)
+numeric_cols <- c("Gini", "S8020", "LoneP", "LWI", "Unemp", "Tert", "House", "Heat", "Pens", "SocBen")
+for(col in numeric_cols) {
+  if(is.character(raw_data[[col]])) raw_data[[col]] <- as.numeric(gsub(",", ".", raw_data[[col]]))
+}
+
+# --- ROBUST CLEANING AND FILTERING FUNCTION ---
+clean_eurostat_data <- function(df, target_val_name, is_unemp = FALSE) {
+  # 1. Convert all column names to lowercase
+  names(df) <- tolower(names(df))
+  
+  # 2. Filter using uppercase values (Eurostat uses "TOTAL", "T", etc.)
+  if("incgrp" %in% names(df)) df <- df %>% filter(toupper(incgrp) == "TOTAL")
+  if("tenure" %in% names(df)) df <- df %>% filter(toupper(tenure) == "TOTAL")
+  if("sex" %in% names(df)) df <- df %>% filter(toupper(sex) == "T")
+  
+  if(is_unemp) {
+    if("age" %in% names(df)) df <- df %>% filter(toupper(age) == "Y15-74")
+    if("unit" %in% names(df)) df <- df %>% filter(toupper(unit) == "PC_ACT")
+  } else {
+    if("age" %in% names(df)) df <- df %>% filter(toupper(age) == "TOTAL")
+    if("unit" %in% names(df)) df <- df %>% filter(toupper(unit) == "PC")
+  }
+  
+  # 3. Rename time, value, and geo columns
+  if("time_period" %in% names(df)) df <- rename(df, Year = time_period)
+  else if("time" %in% names(df)) df <- rename(df, Year = time)
+  
+  if("obs_value" %in% names(df)) df <- rename(df, !!target_val_name := obs_value)
+  else if("values" %in% names(df)) df <- rename(df, !!target_val_name := values)
+  
+  if("geo" %in% names(df)) df <- rename(df, Country = geo)
+  
+  # 4. Keep only the necessary 3 columns and remove duplicates (required for plm)
+  df %>% 
+    select(Country, Year, all_of(target_val_name)) %>%
+    distinct(Country, Year, .keep_all = TRUE)
+}
+
+# Download and clean Eurostat data
+house_euro <- clean_eurostat_data(get_eurostat("ilc_lvho07a", time_format = "num"), "House_Eurostat", is_unemp = FALSE)
+unemp_euro <- clean_eurostat_data(get_eurostat("une_rt_a", time_format = "num"), "Unemp_Eurostat", is_unemp = TRUE)
+
+# Merge datasets
+val_data <- raw_data %>%
+  left_join(house_euro, by = c("Country", "Year")) %>%
+  left_join(unemp_euro, by = c("Country", "Year"))
+
+pdata <- pdata.frame(val_data, index = c("Country", "Year"))
+
+cat("\n========================================================\n")
+cat("  2. UNEMPLOYMENT VALIDATION\n")
+cat("========================================================\n")
+valid_unemp <- val_data %>% filter(!is.na(Unemp) & !is.na(Unemp_Eurostat))
+unemp_cor <- cor(valid_unemp$Unemp, valid_unemp$Unemp_Eurostat)
+cat("Pearson Correlation (Custom Unemp vs Eurostat LFS):", round(unemp_cor, 3), "\n")
+
+cat("\n========================================================\n")
+cat("  3. HOUSING ROBUSTNESS MODELS (NO-LAG FORMULA FIX)\n")
+cat("========================================================\n")
+
+# Create lags manually in the dataset to prevent stargazer formulation errors
+pdata_clean <- pdata
+pdata_clean$Lag_House_Custom <- lag(pdata_clean$House, 1)
+pdata_clean$Lag_House_Eurostat <- lag(pdata_clean$House_Eurostat, 1)
+pdata_clean$Lag_Unemp <- lag(pdata_clean$Unemp, 1)
+pdata_clean$Lag_SocBen <- lag(pdata_clean$SocBen, 1)
+pdata_clean$Lag_Pens <- lag(pdata_clean$Pens, 1)
+pdata_clean$Lag_Tert <- lag(pdata_clean$Tert, 1)
+pdata_clean$Lag_LoneP <- lag(pdata_clean$LoneP, 1)
+pdata_clean$Lag_Heat <- lag(pdata_clean$Heat, 1)
+pdata_clean$Lag_LWI <- lag(pdata_clean$LWI, 1)
+
+# Define formulas WITHOUT the inline lag() function
+f_gini_base <- Gini ~ Lag_House_Custom + Lag_Unemp + Lag_SocBen + Lag_Pens + Lag_Tert + Lag_LoneP + Lag_Heat + Lag_LWI
+f_gini_euro <- Gini ~ Lag_House_Eurostat + Lag_Unemp + Lag_SocBen + Lag_Pens + Lag_Tert + Lag_LoneP + Lag_Heat + Lag_LWI
+
+f_s8020_base <- S8020 ~ Lag_House_Custom + Lag_Unemp + Lag_SocBen + Lag_Pens + Lag_Tert + Lag_LoneP + Lag_Heat + Lag_LWI
+f_s8020_euro <- S8020 ~ Lag_House_Eurostat + Lag_Unemp + Lag_SocBen + Lag_Pens + Lag_Tert + Lag_LoneP + Lag_Heat + Lag_LWI
+
+# Estimate the models using the pre-lagged variables
+m_gini_base <- plm(f_gini_base, data = pdata_clean, model = "within", effect = "individual")
+m_gini_euro <- plm(f_gini_euro, data = pdata_clean, model = "within", effect = "individual")
+m_s8020_base <- plm(f_s8020_base, data = pdata_clean, model = "within", effect = "individual")
+m_s8020_euro <- plm(f_s8020_euro, data = pdata_clean, model = "within", effect = "individual")
+
+# Calculate Arellano standard errors (as numeric vectors for stargazer)
+se_g_base <- as.numeric(sqrt(diag(vcovHC(m_gini_base, type="HC0", cluster="group"))))
+se_g_euro <- as.numeric(sqrt(diag(vcovHC(m_gini_euro, type="HC0", cluster="group"))))
+se_s_base <- as.numeric(sqrt(diag(vcovHC(m_s8020_base, type="HC0", cluster="group"))))
+se_s_euro <- as.numeric(sqrt(diag(vcovHC(m_s8020_euro, type="HC0", cluster="group"))))
+
+cat("\n========================================================\n")
+cat("  4. EXPORT TABLE A6 TO WORD\n")
+cat("========================================================\n")
+stargazer(m_s8020_base, m_s8020_euro, m_gini_base, m_gini_euro,
+          type = "html",
+          out = "TableA6_Housing_Robustness.doc",
+          title = "Table A6: Robustness Check – Baseline vs. Official Eurostat Housing Cost Overburden",
+          column.labels = c("S80/S20", "S80/S20", "Gini", "Gini"),
+          dep.var.labels.include = FALSE,
+          se = list(se_s_base, se_s_euro, se_g_base, se_g_euro),
+          covariate.labels = c("Housing Cost (Custom, t-1)", "Housing Cost (Eurostat, t-1)", 
+                               "Unemployment (t-1)", "Social Benefits (t-1)", "Pensions (t-1)", 
+                               "Tertiary Edu. (t-1)", "Lone Parent (t-1)", 
+                               "Heating Depr. (t-1)", "Low Work Int. (t-1)"),
+          omit.stat = c("f", "ser", "adj.rsq", "wald"),
+          notes = c("Notes: Country fixed effects with Arellano-clustered standard errors.",
+                    "Columns (1) and (3) reproduce the baseline estimates.",
+                    "Columns (2) and (4) substitute the regressor with the Eurostat series (ilc_lvho07a).",
+                    "* p < 0.10, ** p < 0.05, *** p < 0.01."),
+          notes.append = FALSE)
+
+cat("SUCCESS: Table A6_Housing_Robustness.doc created in your directory!\n")
