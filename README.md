@@ -2,8 +2,7 @@
 
 This repository contains the data and R code required to replicate the findings, tables, and econometric models presented in the manuscript: *"Housing Costs, Labour Market Exclusion and the Redistributive Limits of Welfare States: Evidence from a 21–Year European Macro Panel"* (International Journal of Social Economics).
 
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.XXXXXXX.svg)](https://doi.org/10.5281/zenodo.XXXXXXX) 
-*(Note: Replace the badge above with your actual Zenodo DOI once you archive the repository).*
+[Note for Peer Review: A permanent Zenodo DOI will be generated for this repository upon manuscript acceptance]
 
 ## 1. Data Availability Statement
 The raw microdata used to construct the panel (European Union Statistics on Income and Living Conditions - EU-SILC) are confidential and subject to strict access and non-disclosure agreements enforced by Eurostat. Consequently, the raw micro-files cannot be shared publicly in this repository. 
