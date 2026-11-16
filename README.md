@@ -24,6 +24,7 @@ However, to fully support reproducible research, this repository provides:
 * **`TableA2_DataCoverage.R`**: Generates Table A2, documenting the available time period and total country-year observations to explain the unbalanced panel structure.
 * **`TableA4_Sensitivity_DK_Lags.R`**: Generates Table A4, conducting the sensitivity analysis for the two-way fixed effects models using alternative Driscoll-Kraay lag bandwidths (`maxlag = 1` and `maxlag = 3`).
 * **`TableA5_Variable_Mapping.R`**: Generates Table A5, detailing the exact EU-SILC target variables, survey weights, and cross-wave harmonisation rules used for each constructed indicator.
+* **`TableA6_Housing_Robustness.R`**: Downloads official Eurostat data via the API to validate the custom Unemployment indicator (Pearson correlation) and generates Table A6, estimating the baseline models with the official Eurostat Housing Cost Overburden series (ilc_lvho07a) as a robustness check.
 * **`System_GMM_Attempt.R`**: Contains the initial two-step System GMM models. Included for full transparency to document the instrument proliferation issue (>270 instruments, singular covariance matrices, uninformative Sargan tests) that justified the adoption of the parsimonious Fixed Effects specification, as discussed in the manuscript's Limitations section.
 
 ## 3. How to Run the Code
