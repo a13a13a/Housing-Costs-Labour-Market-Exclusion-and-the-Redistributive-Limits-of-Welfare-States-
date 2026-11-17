@@ -11,7 +11,7 @@ cat("  1. LOAD CUSTOM PANEL & FETCH EUROSTAT DATA\n")
 cat("========================================================\n")
 
 # Load the custom macro-panel dataset (assumes file is in the working directory)
-raw_data <- read.csv2("Thesis_Final_Panel_Dataset.csv", stringsAsFactors = FALSE)
+raw_data <- read.csv2("Thesis_Final_Panel_Dataset_Bulletproof.csv", stringsAsFactors = FALSE)
 numeric_cols <- c("Gini", "S8020", "LoneP", "LWI", "Unemp", "Tert", "House", "Heat", "Pens", "SocBen")
 for(col in numeric_cols) {
   if(is.character(raw_data[[col]])) raw_data[[col]] <- as.numeric(gsub(",", ".", raw_data[[col]]))
@@ -69,39 +69,56 @@ unemp_cor <- cor(valid_unemp$Unemp, valid_unemp$Unemp_Eurostat)
 cat("Pearson Correlation (Custom Unemp vs Eurostat LFS):", round(unemp_cor, 3), "\n")
 
 cat("\n========================================================\n")
-cat("  3. HOUSING ROBUSTNESS MODELS (NO-LAG FORMULA FIX)\n")
+cat("  3. HOUSING ROBUSTNESS MODELS (STRICT COMMON SAMPLE N=582)\n")
 cat("========================================================\n")
 
-# Create lags manually in the dataset to prevent stargazer formulation errors
-pdata_clean <- pdata
-pdata_clean$Lag_House_Custom <- lag(pdata_clean$House, 1)
-pdata_clean$Lag_House_Eurostat <- lag(pdata_clean$House_Eurostat, 1)
-pdata_clean$Lag_Unemp <- lag(pdata_clean$Unemp, 1)
-pdata_clean$Lag_SocBen <- lag(pdata_clean$SocBen, 1)
-pdata_clean$Lag_Pens <- lag(pdata_clean$Pens, 1)
-pdata_clean$Lag_Tert <- lag(pdata_clean$Tert, 1)
-pdata_clean$Lag_LoneP <- lag(pdata_clean$LoneP, 1)
-pdata_clean$Lag_Heat <- lag(pdata_clean$Heat, 1)
-pdata_clean$Lag_LWI <- lag(pdata_clean$LWI, 1)
+# 1. Δημιουργία lags ΑΥΣΤΗΡΑ ΑΝΑ ΧΩΡΑ (πριν το κάνουμε pdata.frame)
+val_data_clean <- val_data %>%
+  arrange(Country, Year) %>%       # Χρονολογική σειρά
+  group_by(Country) %>%            # Ομαδοποίηση ανά χώρα
+  mutate(
+    Lag_House_Custom   = dplyr::lag(House, 1),
+    Lag_House_Eurostat = dplyr::lag(House_Eurostat, 1),
+    Lag_Unemp  = dplyr::lag(Unemp, 1),
+    Lag_SocBen = dplyr::lag(SocBen, 1),
+    Lag_Pens   = dplyr::lag(Pens, 1),
+    Lag_Tert   = dplyr::lag(Tert, 1),
+    Lag_LoneP  = dplyr::lag(LoneP, 1),
+    Lag_Heat   = dplyr::lag(Heat, 1),
+    Lag_LWI    = dplyr::lag(LWI, 1)
+  ) %>%
+  ungroup()
 
-# Define formulas WITHOUT the inline lag() function
+# 2. Μετατροπή σε pdata.frame
+pdata_clean <- pdata.frame(val_data_clean, index = c("Country", "Year"))
+
+# 3. Φιλτράρισμα NAs για να κλειδώσουμε το N=582 στο κοινό δείγμα
+strict_sample <- pdata_clean %>%
+  filter(!is.na(Gini) & !is.na(S8020) &
+           !is.na(Lag_House_Custom) & !is.na(Lag_House_Eurostat) &
+           !is.na(Lag_Unemp) & !is.na(Lag_SocBen) & !is.na(Lag_Pens) &
+           !is.na(Lag_Tert) & !is.na(Lag_LoneP) & !is.na(Lag_Heat) & !is.na(Lag_LWI))
+
+cat("Strict Sample Size Check (should be exactly 582):", nrow(strict_sample), "\n")
+
+# 4. Φόρμουλες
 f_gini_base <- Gini ~ Lag_House_Custom + Lag_Unemp + Lag_SocBen + Lag_Pens + Lag_Tert + Lag_LoneP + Lag_Heat + Lag_LWI
 f_gini_euro <- Gini ~ Lag_House_Eurostat + Lag_Unemp + Lag_SocBen + Lag_Pens + Lag_Tert + Lag_LoneP + Lag_Heat + Lag_LWI
 
 f_s8020_base <- S8020 ~ Lag_House_Custom + Lag_Unemp + Lag_SocBen + Lag_Pens + Lag_Tert + Lag_LoneP + Lag_Heat + Lag_LWI
 f_s8020_euro <- S8020 ~ Lag_House_Eurostat + Lag_Unemp + Lag_SocBen + Lag_Pens + Lag_Tert + Lag_LoneP + Lag_Heat + Lag_LWI
 
-# Estimate the models using the pre-lagged variables
-m_gini_base <- plm(f_gini_base, data = pdata_clean, model = "within", effect = "individual")
-m_gini_euro <- plm(f_gini_euro, data = pdata_clean, model = "within", effect = "individual")
-m_s8020_base <- plm(f_s8020_base, data = pdata_clean, model = "within", effect = "individual")
-m_s8020_euro <- plm(f_s8020_euro, data = pdata_clean, model = "within", effect = "individual")
+# 5. Τρέξιμο μοντέλων στο strict_sample
+m_gini_base <- plm(f_gini_base, data = strict_sample, model = "within", effect = "individual")
+m_gini_euro <- plm(f_gini_euro, data = strict_sample, model = "within", effect = "individual")
+m_s8020_base <- plm(f_s8020_base, data = strict_sample, model = "within", effect = "individual")
+m_s8020_euro <- plm(f_s8020_euro, data = strict_sample, model = "within", effect = "individual")
 
-# Calculate Arellano standard errors (as numeric vectors for stargazer)
-se_g_base <- as.numeric(sqrt(diag(vcovHC(m_gini_base, type="HC0", cluster="group"))))
-se_g_euro <- as.numeric(sqrt(diag(vcovHC(m_gini_euro, type="HC0", cluster="group"))))
-se_s_base <- as.numeric(sqrt(diag(vcovHC(m_s8020_base, type="HC0", cluster="group"))))
-se_s_euro <- as.numeric(sqrt(diag(vcovHC(m_s8020_euro, type="HC0", cluster="group"))))
+# 6. Standard errors με HC1 (όπως στον Πίνακα 2)
+se_g_base <- as.numeric(sqrt(diag(vcovHC(m_gini_base, type="HC1", cluster="group"))))
+se_g_euro <- as.numeric(sqrt(diag(vcovHC(m_gini_euro, type="HC1", cluster="group"))))
+se_s_base <- as.numeric(sqrt(diag(vcovHC(m_s8020_base, type="HC1", cluster="group"))))
+se_s_euro <- as.numeric(sqrt(diag(vcovHC(m_s8020_euro, type="HC1", cluster="group"))))
 
 cat("\n========================================================\n")
 cat("  4. EXPORT TABLE A6 TO WORD\n")
