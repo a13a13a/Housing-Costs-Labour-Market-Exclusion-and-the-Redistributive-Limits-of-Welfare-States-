@@ -1,40 +1,71 @@
+
 # ==============================================================================
-# DIAGNOSTIC TESTS SCRIPT: Heteroskedasticity, Serial Correlation, & CD Test
+# DIAGNOSTIC TESTS: PANEL FIXED EFFECTS MODELS
+# Cross-sectional dependence and serial correlation
 # ==============================================================================
 
 library(plm)
 library(lmtest)
 
-# Prerequisite: Ensure pdata and baseline models (fe_gini, fe_s8020) are loaded
+# Prerequisite:
+# pdata, fe_gini and fe_s8020 must already be loaded.
 
 cat("\n========================================================\n")
-cat("            DIAGNOSTIC TESTS (PANEL DATA)\n")
+cat("       DIAGNOSTIC TESTS (PANEL DATA)\n")
 cat("========================================================\n")
 
-# 1. Pesaran CD Test for Cross-Sectional Dependence
-# If p < 0.05, cross-sectional dependence is present (motivates Two-Ways FE)
+
+# 1. PESARAN CD TEST
+# H0: Cross-sectional independence
+
 cat("\n--- Pesaran CD Test (Gini) ---\n")
 print(pcdtest(fe_gini, test = "cd"))
 
-cat("\n--- Pesaran CD Test (S8020) ---\n")
+cat("\n--- Pesaran CD Test (S80/S20) ---\n")
 print(pcdtest(fe_s8020, test = "cd"))
 
 
-# 2. Breusch-Pagan Test for Heteroskedasticity
-# If p < 0.05, heteroskedasticity is present -> Justifies Robust Standard Errors
-cat("\n--- Breusch-Pagan Test (Gini) ---\n")
-print(bptest(fe_gini))
+# 2. BREUSCH-GODFREY TEST: FIRST-ORDER SERIAL CORRELATION
+# H0: No serial correlation of the tested order
 
-cat("\n--- Breusch-Pagan Test (S8020) ---\n")
-print(bptest(fe_s8020))
+cat("\n--- Breusch-Godfrey AR(1) Test (Gini) ---\n")
+print(pbgtest(fe_gini, order = 1, type = "F"))
+
+cat("\n--- Breusch-Godfrey AR(1) Test (S80/S20) ---\n")
+print(pbgtest(fe_s8020, order = 1, type = "F"))
 
 
-# 3. Breusch-Godfrey / Wooldridge Test for Serial Correlation
-# If p < 0.05, serial correlation is present -> Justifies Arellano Clustered SEs
-cat("\n--- Breusch-Godfrey Test (Gini) ---\n")
-print(pbgtest(fe_gini))
+# 3. WOOLDRIDGE TEST FOR SERIAL CORRELATION IN FE MODELS
+# H0: No first-order serial correlation
 
-cat("\n--- Breusch-Godfrey Test (S8020) ---\n")
-print(pbgtest(fe_s8020))
+cat("\n--- Wooldridge Test (Gini) ---\n")
+print(pwartest(fe_gini))
+
+cat("\n--- Wooldridge Test (S80/S20) ---\n")
+print(pwartest(fe_s8020))
+
+
+# 4. ARELLANO ROBUST COVARIANCE MATRICES
+# Allows heteroskedasticity and serial correlation within countries.
+# Use the same HC type as in the baseline regression tables.
+
+cat("\n--- Arellano Covariance Matrix (Gini) ---\n")
+print(vcovHC(
+  fe_gini,
+  method = "arellano",
+  type = "HC1",
+  cluster = "group"
+))
+
+cat("\n--- Arellano Covariance Matrix (S80/S20) ---\n")
+print(vcovHC(
+  fe_s8020,
+  method = "arellano",
+  type = "HC1",
+  cluster = "group"
+))
+
 
 cat("\n========================================================\n")
+cat("       DIAGNOSTIC TESTS COMPLETED\n")
+cat("========================================================\n")
