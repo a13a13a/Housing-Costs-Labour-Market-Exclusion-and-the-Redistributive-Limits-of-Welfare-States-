@@ -1,5 +1,5 @@
 # ==============================================================================
-# VALIDATION & ROBUSTNESS SCRIPT
+# VALIDATION & ROBUSTNESS SCRIPT (FIXED: ISOLATED SAMPLES & PANEL LAGS)
 # ==============================================================================
 library(plm)
 library(eurostat)
@@ -7,22 +7,44 @@ library(dplyr)
 library(stargazer)
 
 cat("\n========================================================\n")
-cat("  1. LOAD CUSTOM PANEL & FETCH EUROSTAT DATA\n")
+cat("  1. LOAD CUSTOM PANEL & RUN BASELINE MODELS (Columns 1 & 3)\n")
 cat("========================================================\n")
 
-# Load the custom macro-panel dataset (assumes file is in the working directory)
+# 1. Φόρτωσε το δικό σου Dataset (χωρίς την Eurostat ακόμα)
 raw_data <- read.csv2("Thesis_Final_Panel_Dataset_Bulletproof.csv", stringsAsFactors = FALSE)
+
 numeric_cols <- c("Gini", "S8020", "LoneP", "LWI", "Unemp", "Tert", "House", "Heat", "Pens", "SocBen")
 for(col in numeric_cols) {
   if(is.character(raw_data[[col]])) raw_data[[col]] <- as.numeric(gsub(",", ".", raw_data[[col]]))
 }
 
-# --- ROBUST CLEANING AND FILTERING FUNCTION ---
+# Μετατροπή σε pdata.frame για τα Baseline (Κρατάει όλες τις 589 παρατηρήσεις)
+pdata_base <- pdata.frame(raw_data, index = c("Country", "Year"))
+
+# Δημιουργία lags (χρησιμοποιώντας τη plm::lag για απόλυτη ασφάλεια στα όρια των χωρών)
+pdata_base$Lag_House_Custom <- plm::lag(pdata_base$House, 1)
+pdata_base$Lag_Unemp        <- plm::lag(pdata_base$Unemp, 1)
+pdata_base$Lag_SocBen       <- plm::lag(pdata_base$SocBen, 1)
+pdata_base$Lag_Pens         <- plm::lag(pdata_base$Pens, 1)
+pdata_base$Lag_Tert         <- plm::lag(pdata_base$Tert, 1)
+pdata_base$Lag_LoneP        <- plm::lag(pdata_base$LoneP, 1)
+pdata_base$Lag_Heat         <- plm::lag(pdata_base$Heat, 1)
+pdata_base$Lag_LWI          <- plm::lag(pdata_base$LWI, 1)
+
+f_gini_base  <- Gini ~ Lag_House_Custom + Lag_Unemp + Lag_SocBen + Lag_Pens + Lag_Tert + Lag_LoneP + Lag_Heat + Lag_LWI
+f_s8020_base <- S8020 ~ Lag_House_Custom + Lag_Unemp + Lag_SocBen + Lag_Pens + Lag_Tert + Lag_LoneP + Lag_Heat + Lag_LWI
+
+# Τρέχουμε τα baseline μοντέλα
+m_gini_base  <- plm(f_gini_base, data = pdata_base, model = "within", effect = "individual")
+m_s8020_base <- plm(f_s8020_base, data = pdata_base, model = "within", effect = "individual")
+
+cat("\n========================================================\n")
+cat("  2. FETCH EUROSTAT DATA & RUN ROBUSTNESS MODELS (Columns 2 & 4)\n")
+cat("========================================================\n")
+
+# Συναρτηση καθαρισμού
 clean_eurostat_data <- function(df, target_val_name, is_unemp = FALSE) {
-  # 1. Convert all column names to lowercase
   names(df) <- tolower(names(df))
-  
-  # 2. Filter using uppercase values (Eurostat uses "TOTAL", "T", etc.)
   if("incgrp" %in% names(df)) df <- df %>% filter(toupper(incgrp) == "TOTAL")
   if("tenure" %in% names(df)) df <- df %>% filter(toupper(tenure) == "TOTAL")
   if("sex" %in% names(df)) df <- df %>% filter(toupper(sex) == "T")
@@ -35,7 +57,6 @@ clean_eurostat_data <- function(df, target_val_name, is_unemp = FALSE) {
     if("unit" %in% names(df)) df <- df %>% filter(toupper(unit) == "PC")
   }
   
-  # 3. Rename time, value, and geo columns
   if("time_period" %in% names(df)) df <- rename(df, Year = time_period)
   else if("time" %in% names(df)) df <- rename(df, Year = time)
   
@@ -44,85 +65,50 @@ clean_eurostat_data <- function(df, target_val_name, is_unemp = FALSE) {
   
   if("geo" %in% names(df)) df <- rename(df, Country = geo)
   
-  # 4. Keep only the necessary 3 columns and remove duplicates (required for plm)
   df %>% 
     select(Country, Year, all_of(target_val_name)) %>%
     distinct(Country, Year, .keep_all = TRUE)
 }
 
-# Download and clean Eurostat data
+# Download & Clean
 house_euro <- clean_eurostat_data(get_eurostat("ilc_lvho07a", time_format = "num"), "House_Eurostat", is_unemp = FALSE)
 unemp_euro <- clean_eurostat_data(get_eurostat("une_rt_a", time_format = "num"), "Unemp_Eurostat", is_unemp = TRUE)
 
-# Merge datasets
+# Merge μόνο για τα Robustness μοντέλα
 val_data <- raw_data %>%
   left_join(house_euro, by = c("Country", "Year")) %>%
   left_join(unemp_euro, by = c("Country", "Year"))
 
-pdata <- pdata.frame(val_data, index = c("Country", "Year"))
+pdata_euro <- pdata.frame(val_data, index = c("Country", "Year"))
 
-cat("\n========================================================\n")
-cat("  2. UNEMPLOYMENT VALIDATION\n")
-cat("========================================================\n")
-valid_unemp <- val_data %>% filter(!is.na(Unemp) & !is.na(Unemp_Eurostat))
-unemp_cor <- cor(valid_unemp$Unemp, valid_unemp$Unemp_Eurostat)
-cat("Pearson Correlation (Custom Unemp vs Eurostat LFS):", round(unemp_cor, 3), "\n")
+# Lags για τα Eurostat μοντέλα (τα ξαναφτιάχνουμε στο νέο dataframe)
+pdata_euro$Lag_House_Eurostat <- plm::lag(pdata_euro$House_Eurostat, 1)
+pdata_euro$Lag_Unemp          <- plm::lag(pdata_euro$Unemp, 1)
+pdata_euro$Lag_SocBen         <- plm::lag(pdata_euro$SocBen, 1)
+pdata_euro$Lag_Pens           <- plm::lag(pdata_euro$Pens, 1)
+pdata_euro$Lag_Tert           <- plm::lag(pdata_euro$Tert, 1)
+pdata_euro$Lag_LoneP          <- plm::lag(pdata_euro$LoneP, 1)
+pdata_euro$Lag_Heat           <- plm::lag(pdata_euro$Heat, 1)
+pdata_euro$Lag_LWI            <- plm::lag(pdata_euro$LWI, 1)
 
-cat("\n========================================================\n")
-cat("  3. HOUSING ROBUSTNESS MODELS (STRICT COMMON SAMPLE N=582)\n")
-cat("========================================================\n")
-
-# 1. Δημιουργία lags ΑΥΣΤΗΡΑ ΑΝΑ ΧΩΡΑ (πριν το κάνουμε pdata.frame)
-val_data_clean <- val_data %>%
-  arrange(Country, Year) %>%       # Χρονολογική σειρά
-  group_by(Country) %>%            # Ομαδοποίηση ανά χώρα
-  mutate(
-    Lag_House_Custom   = dplyr::lag(House, 1),
-    Lag_House_Eurostat = dplyr::lag(House_Eurostat, 1),
-    Lag_Unemp  = dplyr::lag(Unemp, 1),
-    Lag_SocBen = dplyr::lag(SocBen, 1),
-    Lag_Pens   = dplyr::lag(Pens, 1),
-    Lag_Tert   = dplyr::lag(Tert, 1),
-    Lag_LoneP  = dplyr::lag(LoneP, 1),
-    Lag_Heat   = dplyr::lag(Heat, 1),
-    Lag_LWI    = dplyr::lag(LWI, 1)
-  ) %>%
-  ungroup()
-
-# 2. Μετατροπή σε pdata.frame
-pdata_clean <- pdata.frame(val_data_clean, index = c("Country", "Year"))
-
-# 3. Φιλτράρισμα NAs για να κλειδώσουμε το N=582 στο κοινό δείγμα
-strict_sample <- pdata_clean %>%
-  filter(!is.na(Gini) & !is.na(S8020) &
-           !is.na(Lag_House_Custom) & !is.na(Lag_House_Eurostat) &
-           !is.na(Lag_Unemp) & !is.na(Lag_SocBen) & !is.na(Lag_Pens) &
-           !is.na(Lag_Tert) & !is.na(Lag_LoneP) & !is.na(Lag_Heat) & !is.na(Lag_LWI))
-
-cat("Strict Sample Size Check (should be exactly 582):", nrow(strict_sample), "\n")
-
-# 4. Φόρμουλες
-f_gini_base <- Gini ~ Lag_House_Custom + Lag_Unemp + Lag_SocBen + Lag_Pens + Lag_Tert + Lag_LoneP + Lag_Heat + Lag_LWI
-f_gini_euro <- Gini ~ Lag_House_Eurostat + Lag_Unemp + Lag_SocBen + Lag_Pens + Lag_Tert + Lag_LoneP + Lag_Heat + Lag_LWI
-
-f_s8020_base <- S8020 ~ Lag_House_Custom + Lag_Unemp + Lag_SocBen + Lag_Pens + Lag_Tert + Lag_LoneP + Lag_Heat + Lag_LWI
+f_gini_euro  <- Gini ~ Lag_House_Eurostat + Lag_Unemp + Lag_SocBen + Lag_Pens + Lag_Tert + Lag_LoneP + Lag_Heat + Lag_LWI
 f_s8020_euro <- S8020 ~ Lag_House_Eurostat + Lag_Unemp + Lag_SocBen + Lag_Pens + Lag_Tert + Lag_LoneP + Lag_Heat + Lag_LWI
 
-# 5. Τρέξιμο μοντέλων στο strict_sample
-m_gini_base <- plm(f_gini_base, data = strict_sample, model = "within", effect = "individual")
-m_gini_euro <- plm(f_gini_euro, data = strict_sample, model = "within", effect = "individual")
-m_s8020_base <- plm(f_s8020_base, data = strict_sample, model = "within", effect = "individual")
-m_s8020_euro <- plm(f_s8020_euro, data = strict_sample, model = "within", effect = "individual")
-
-# 6. Standard errors με HC1 (όπως στον Πίνακα 2)
-se_g_base <- as.numeric(sqrt(diag(vcovHC(m_gini_base, type="HC1", cluster="group"))))
-se_g_euro <- as.numeric(sqrt(diag(vcovHC(m_gini_euro, type="HC1", cluster="group"))))
-se_s_base <- as.numeric(sqrt(diag(vcovHC(m_s8020_base, type="HC1", cluster="group"))))
-se_s_euro <- as.numeric(sqrt(diag(vcovHC(m_s8020_euro, type="HC1", cluster="group"))))
+# Τρέχουμε τα Eurostat μοντέλα
+m_gini_euro  <- plm(f_gini_euro, data = pdata_euro, model = "within", effect = "individual")
+m_s8020_euro <- plm(f_s8020_euro, data = pdata_euro, model = "within", effect = "individual")
 
 cat("\n========================================================\n")
-cat("  4. EXPORT TABLE A6 TO WORD\n")
+cat("  3. CALCULATE STANDARD ERRORS & EXPORT TO WORD\n")
 cat("========================================================\n")
+
+# Arellano Standard Errors (HC0 group clustering)
+se_g_base <- as.numeric(sqrt(diag(vcovHC(m_gini_base, type="HC0", cluster="group"))))
+se_g_euro <- as.numeric(sqrt(diag(vcovHC(m_gini_euro, type="HC0", cluster="group"))))
+se_s_base <- as.numeric(sqrt(diag(vcovHC(m_s8020_base, type="HC0", cluster="group"))))
+se_s_euro <- as.numeric(sqrt(diag(vcovHC(m_s8020_euro, type="HC0", cluster="group"))))
+
+# Εξαγωγή πίνακα
 stargazer(m_s8020_base, m_s8020_euro, m_gini_base, m_gini_euro,
           type = "html",
           out = "TableA6_Housing_Robustness.doc",
@@ -141,4 +127,4 @@ stargazer(m_s8020_base, m_s8020_euro, m_gini_base, m_gini_euro,
                     "* p < 0.10, ** p < 0.05, *** p < 0.01."),
           notes.append = FALSE)
 
-cat("SUCCESS: Table A6_Housing_Robustness.doc created in your directory!\n")
+cat("\nSUCCESS: 'TableA6_Housing_Robustness.doc' created with correct separated samples!\n")
