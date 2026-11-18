@@ -27,27 +27,76 @@ cat("\n========================================================\n")
 cat("      HAUSMAN TESTS (Fixed vs Random Effects)\n")
 cat("========================================================\n")
 
-for (y in dep_vars) {
-  form <- as.formula(paste(y, "~", indep_vars))
+
+# ========================================================
+# ROBUST HAUSMAN TEST: FE vs RE
+# Same lagged specification as baseline Table 2
+# ========================================================
+
+# ========================================================
+# ROBUST HAUSMAN TEST: FE vs RE
+# ========================================================
+library(plm)
+library(lmtest)
+
+# 1. Υπολογισμός των lagged μεταβλητών ΚΑΤΕΥΘΕΙΑΝ στο pdata
+pdata$House_l1  <- plm::lag(pdata$House, 1)
+pdata$Unemp_l1  <- plm::lag(pdata$Unemp, 1)
+pdata$SocBen_l1 <- plm::lag(pdata$SocBen, 1)
+pdata$Pens_l1   <- plm::lag(pdata$Pens, 1)
+pdata$Tert_l1   <- plm::lag(pdata$Tert, 1)
+pdata$LoneP_l1  <- plm::lag(pdata$LoneP, 1)
+pdata$Heat_l1   <- plm::lag(pdata$Heat, 1)
+pdata$LWI_l1    <- plm::lag(pdata$LWI, 1)
+
+# 2. Καθαρές φόρμουλες χωρίς τη συνάρτηση lag() εσωτερικά
+forms <- list(
+  Gini = Gini ~ House_l1 + Unemp_l1 + SocBen_l1 + Pens_l1 + 
+    Tert_l1 + LoneP_l1 + Heat_l1 + LWI_l1,
   
-  fe <- plm(form, data = pdata, model = "within", effect = "individual")
-  re <- plm(form, data = pdata, model = "random", effect = "individual")
+  S8020 = S8020 ~ House_l1 + Unemp_l1 + SocBen_l1 + Pens_l1 + 
+    Tert_l1 + LoneP_l1 + Heat_l1 + LWI_l1
+)
+
+# 3. Εκτέλεση του Robust Hausman Test
+for (nm in names(forms)) {
   
-  ht <- phtest(fe, re)
+  ht <- phtest(
+    forms[[nm]],
+    data = pdata,
+    model = c("within", "random"),
+    effect = "individual",
+    method = "aux",
+    vcov = function(x) {
+      vcovHC(
+        x,
+        method = "arellano",
+        type = "HC1",
+        cluster = "group"
+      )
+    }
+  )
   
-  cat(sprintf("\nDependent Variable: %s\n", y))
-  cat(sprintf(" - P-Value: %.5f\n", ht$p.value))
+  cat("\nDependent Variable:", nm, "\n")
+  print(ht)
   
   if (!is.na(ht$p.value) && ht$p.value < 0.05) {
-    cat("   CONCLUSION: P < 0.05 -> FIXED EFFECTS model is preferred and consistent.\n")
-  } else if (!is.na(ht$p.value)) {
-    cat("   CONCLUSION: P > 0.05 -> RANDOM EFFECTS model is preferred.\n")
+    cat("Conclusion: Reject RE. Evidence supports FE.\n")
+  } else {
+    cat("Conclusion: Do not reject RE consistency.\n")
   }
 }
+
 cat("\n========================================================\n")
 
 # ========================================================
 # VIF TEST FOR MULTICOLLINEARITY
+# ========================================================
+cat("      VARIANCE INFLATION FACTOR (VIF) TEST\n")
+cat("========================================================\n")
+
+# ========================================================
+# VIF: LAGGED VARIABLES + COUNTRY FIXED EFFECTS
 # ========================================================
 cat("      VARIANCE INFLATION FACTOR (VIF) TEST\n")
 cat("========================================================\n")
