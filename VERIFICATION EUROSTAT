@@ -99,12 +99,12 @@ lwi_eu <- get_eurostat("ilc_lvhl11", time_format = "num", stringsAsFactors = FAL
 
 # 8. Lone Parent Households (ilc_lvph02)
 lonep_raw <- get_eurostat("ilc_lvph02", time_format = "num", stringsAsFactors = FALSE, update_cache = TRUE)
-if ("hhtyp" %in% colnames(lonep_raw)) {
-  lonep_eu <- lonep_raw %>% filter(hhtyp == "A1_DCH")
-} else if ("household" %in% colnames(lonep_raw)) {
-  lonep_eu <- lonep_raw %>% filter(household == "A1_DCH")
+hh_col_lonep <- intersect(c("hhcomp", "hhtyp", "household"), colnames(lonep_raw))[1]
+
+if (!is.na(hh_col_lonep)) {
+  lonep_eu <- lonep_raw %>% filter(!!sym(hh_col_lonep) == "A1_DCH")
 } else {
-  lonep_eu <- lonep_raw
+  stop("Δεν βρέθηκε στήλη household type στο ilc_lvph02!")
 }
 
 lonep_eu <- lonep_eu %>%
