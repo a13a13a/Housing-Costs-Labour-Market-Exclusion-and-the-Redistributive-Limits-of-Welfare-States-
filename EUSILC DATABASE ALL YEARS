@@ -1,5 +1,5 @@
 # ==============================================================================
-# MASTER SCRIPT: DATA CREATION
+# MASTER SCRIPT: DATABASE CREATION ALL YEARS 
 # ==============================================================================
 
 library(dplyr)
@@ -55,7 +55,7 @@ calc_s80s20 <- function(x, w) {
 
 # --- 1. SETTINGS / CONFIGURATION ---
 countries <- c("AT", "BE", "BG", "CH", "CY","CZ", "DE", "DK", "EE", "EL", "ES", "FI", "FR", "HR", "HU", "IE", "IS", "IT", "LT", "LU", "LV", "MT", "NL", "NO", "PL", "PT", "RO", "RS", "SE", "SI", "SK", "UK") 
-base_path <- "./data/"
+base_path <- "/Cross4/"
 years <- 2004:2024
 master_panel_list <- list()
 
@@ -84,6 +84,9 @@ for (cntry in countries) {
     names(p) <- trimws(names(p))
     
     r_hid <- if("rx030" %in% names(r)) "rx030" else "rb040"
+    
+    d <- fread(files["f_d"], colClasses = "character", data.table = FALSE) %>% rename_all(tolower) %>% mutate(across(everything(), trimws))
+    d_final <- d %>% transmute(hid = clean_id(db030), w_db090 = as_num(db090))
     
     # --- PREPARE R-FILE ---
     rb080_col <- if("rb080_val" %in% names(r)) "rb080_val" else if("rb080" %in% names(r)) "rb080" else NA
@@ -231,25 +234,29 @@ for (cntry in countries) {
     }
     
     # --- 2. POINT-IN-TIME UNEMPLOYMENT (PL032 / PL031 / PL030) ---
-    has_pl032 <- "pl032" %in% names(p_work) && any(!is.na(get_col(p_work, "pl032")))
-    has_pl031 <- "pl031" %in% names(p_work) && any(!is.na(get_col(p_work, "pl031")))
-    has_pl030 <- "pl030" %in% names(p_work) && any(!is.na(get_col(p_work, "pl030")))
-    
-    p_work$pl031_val <- coalesce(get_col(p_work, "pl032"), get_col(p_work, "pl031"), get_col(p_work, "pl030"))
-    
-    p_unemp <- p_work %>% 
-      filter(age >= 15 & age <= 74, !is.na(pl031_val)) %>%
+    # --- 2. POINT-IN-TIME UNEMPLOYMENT (PL032 / PL031 / PL030 - Row-by-Row) ---
+    p_unemp <- p_work %>%
+      mutate(
+        v_pl032 = get_col(., "pl032"),
+        v_pl031 = get_col(., "pl031"),
+        v_pl030 = get_col(., "pl030"),
+        # Remove negative missing-value flags (-1, -2, -3, etc.)
+        v_pl032 = ifelse(!is.na(v_pl032) & v_pl032 > 0, v_pl032, NA_real_),
+        v_pl031 = ifelse(!is.na(v_pl031) & v_pl031 > 0, v_pl031, NA_real_),
+        v_pl030 = ifelse(!is.na(v_pl030) & v_pl030 > 0, v_pl030, NA_real_)
+      ) %>%
+      filter(age >= 15 & age <= 74, !is.na(v_pl032) | !is.na(v_pl031) | !is.na(v_pl030)) %>%
       mutate(
         is_employed = case_when(
-          has_pl032 & pl031_val == 1 ~ 1,
-          !has_pl032 & has_pl031 & pl031_val %in% c(1, 2, 3, 4) ~ 1,
-          !has_pl032 & !has_pl031 & has_pl030 & pl031_val %in% c(1, 2) ~ 1,
+          !is.na(v_pl032) ~ ifelse(v_pl032 == 1, 1, 0),
+          !is.na(v_pl031) ~ ifelse(v_pl031 %in% c(1, 2, 3, 4), 1, 0),
+          !is.na(v_pl030) ~ ifelse(v_pl030 %in% c(1, 2), 1, 0),
           TRUE ~ 0
         ),
         is_unemployed = case_when(
-          has_pl032 & pl031_val == 2 ~ 1,
-          !has_pl032 & has_pl031 & pl031_val == 5 ~ 1,
-          !has_pl032 & !has_pl031 & has_pl030 & pl031_val == 3 ~ 1,
+          !is.na(v_pl032) ~ ifelse(v_pl032 == 2, 1, 0),
+          !is.na(v_pl031) ~ ifelse(v_pl031 == 5, 1, 0),
+          !is.na(v_pl030) ~ ifelse(v_pl030 == 3, 1, 0),
           TRUE ~ 0
         ),
         lf = is_employed + is_unemployed
@@ -260,7 +267,12 @@ for (cntry in countries) {
                          (sum(p_unemp$is_unemployed * p_unemp$w_ind, na.rm = TRUE) / 
                             sum(p_unemp$w_ind, na.rm = TRUE)) * 100, NA)
     
-    # --- TERT & LWI CALCULATIONS ---
+    # Code 5 (Unemployed) is unpopulated in Eurostat UDB PL031 for IS 2017-2020
+    if (sum(p_unemp$is_unemployed, na.rm = TRUE) == 0) {
+      u_rate_val <- NA_real_
+    }
+    
+    # --- TERTIARY EDUCATION CALCULATION ---
     df_tert <- p_work %>% filter(age >= 25 & age <= 64, !is.na(w_ind), w_ind > 0)
     
     if(nrow(df_tert) > 0) {
@@ -283,7 +295,11 @@ for (cntry in countries) {
     }
     
     # --- MERGE FOR THE REST ---
-    final <- r %>% left_join(h_final, by="hid") %>% left_join(p_pens, by="hid") %>% left_join(lwi_hh, by="hid")
+    final <- r %>% 
+      left_join(d_final, by="hid") %>% 
+      left_join(h_final, by="hid") %>% 
+      left_join(p_pens, by="hid") %>% 
+      left_join(lwi_hh, by="hid")
     
     # --- CALCULATE LWI (Νέος Ορισμός) ---
     df_lwi <- final %>% filter(age < 65, !is.na(w_ind), w_ind > 0, !is.na(lwi_val))
@@ -314,8 +330,9 @@ for (cntry in countries) {
     s8020 <- calc_s80s20(final$hx090_val, final$w_ind)
     
     hh_only <- final[!duplicated(final$hid), ]
-    w_col <- if ("db090" %in% names(hh_only)) "db090" else if ("db090_val" %in% names(hh_only)) "db090_val" else if ("rb050_val" %in% names(hh_only)) "rb050_val" else "rb050"
-    loneP <- ifelse(sum(as_num(hh_only[[w_col]]), na.rm = TRUE) > 0, (sum(as_num(hh_only[[w_col]])[hh_only$hx060_val == 5], na.rm = TRUE) / sum(as_num(hh_only[[w_col]]), na.rm = TRUE)) * 100, NA)
+    w_col <- if ("w_db090" %in% names(hh_only) && any(!is.na(hh_only$w_db090))) "w_db090" else "w_ind"
+    loneP <- ifelse(sum(hh_only[[w_col]], na.rm = TRUE) > 0,
+                    (sum(hh_only[[w_col]][hh_only$hx060_val == 9], na.rm = TRUE) / sum(hh_only[[w_col]], na.rm = TRUE)) * 100, NA)
     
     house <- ifelse(sum(final$w_ind[!is.na(final$h_over)], na.rm = TRUE) > 0,
                     (sum(final$h_over * final$w_ind, na.rm = TRUE) / sum(final$w_ind[!is.na(final$h_over)], na.rm = TRUE)) * 100, NA)
@@ -349,7 +366,7 @@ for (cntry in countries) {
     
     # --- SAFE MEMORY CLEANUP TO PREVENT R CRASHES ---
     objs_to_rm <- c("h", "r", "p", "h_final", "p_with_hid", "p_pens", "final", 
-                    "lwi_hh", "p_work", "p_lwi", "p_unemp", "p_fte", "df_tert", "df_lwi")
+                    "lwi_hh", "p_work", "p_lwi", "p_unemp", "p_fte", "df_tert", "df_lwi", "d", "d_final")
     rm(list = intersect(objs_to_rm, ls()))
     gc()
   }
