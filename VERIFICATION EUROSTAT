@@ -28,8 +28,6 @@ gini_eu <- get_eurostat("ilc_di12", time_format = "num", stringsAsFactors = FALS
 
 # 2. ARPR (ilc_li02) - Corrected with dynamic column check
 arpr_raw <- get_eurostat("ilc_li02", time_format = "num", stringsAsFactors = FALSE, update_cache = TRUE)
-
-# Locate the indicator column (indic_il, indic_is, or indic_li)
 indic_col_arpr <- intersect(c("indic_il", "indic_is", "indic_li", "indicator"), colnames(arpr_raw))[1]
 
 if (!is.na(indic_col_arpr)) {
@@ -51,14 +49,11 @@ s8020_eu <- get_eurostat("ilc_di11", time_format = "num", stringsAsFactors = FAL
 
 # 4. Median Income (ilc_di03)
 medinc_raw <- get_eurostat("ilc_di03", time_format = "num", stringsAsFactors = FALSE, update_cache = TRUE)
-
-# Check if the column is named indic_il or indic_is
 if ("indic_il" %in% colnames(medinc_raw)) {
   medinc_eu <- medinc_raw %>% filter(indic_il == "MED_E")
 } else if ("indic_is" %in% colnames(medinc_raw)) {
   medinc_eu <- medinc_raw %>% filter(indic_is == "MED_E")
 } else {
-  # If Eurostat changed it completely, keep the whole dataset to inspect
   medinc_eu <- medinc_raw 
 }
 
@@ -69,8 +64,6 @@ medinc_eu <- medinc_eu %>%
 
 # 5. House Cost Overburden (ilc_lvho07a)
 house_raw <- get_eurostat("ilc_lvho07a", time_format = "num", stringsAsFactors = FALSE, update_cache = TRUE)
-
-# Check for the income group column (incgrp or quant_inc)
 if ("incgrp" %in% colnames(house_raw)) {
   house_eu <- house_raw %>% filter(incgrp == "TOTAL")
 } else if ("quant_inc" %in% colnames(house_raw)) {
@@ -84,21 +77,14 @@ house_eu <- house_eu %>%
   select(Country = geo, Year = TIME_PERIOD, House_EU = values) %>%
   distinct(Country, Year, .keep_all = TRUE)
 
-# 6. Heat (ilc_mdes01) - Corrected with dynamic column checks
+# 6. Heat (ilc_mdes01)
 heat_raw <- get_eurostat("ilc_mdes01", time_format = "num", stringsAsFactors = FALSE, update_cache = TRUE)
-
-# Locate available columns for household type and income
 hhtyp_col <- intersect(c("hhtyp", "hhcomp", "household"), colnames(heat_raw))[1]
 incgrp_col <- intersect(c("incgrp", "quant_inc"), colnames(heat_raw))[1]
 
 heat_eu <- heat_raw
-
-if (!is.na(hhtyp_col)) {
-  heat_eu <- heat_eu %>% filter(!!sym(hhtyp_col) %in% c("TOTAL", "T"))
-}
-if (!is.na(incgrp_col)) {
-  heat_eu <- heat_eu %>% filter(!!sym(incgrp_col) %in% c("TOTAL", "T"))
-}
+if (!is.na(hhtyp_col)) heat_eu <- heat_eu %>% filter(!!sym(hhtyp_col) %in% c("TOTAL", "T"))
+if (!is.na(incgrp_col)) heat_eu <- heat_eu %>% filter(!!sym(incgrp_col) %in% c("TOTAL", "T"))
 
 heat_eu <- heat_eu %>%
   filter(geo %in% my_data$Country, TIME_PERIOD %in% my_data$Year) %>%
@@ -113,8 +99,6 @@ lwi_eu <- get_eurostat("ilc_lvhl11", time_format = "num", stringsAsFactors = FAL
 
 # 8. Lone Parent Households (ilc_lvph02)
 lonep_raw <- get_eurostat("ilc_lvph02", time_format = "num", stringsAsFactors = FALSE, update_cache = TRUE)
-
-# Check if the column is named hhtyp or household
 if ("hhtyp" %in% colnames(lonep_raw)) {
   lonep_eu <- lonep_raw %>% filter(hhtyp == "A1_DCH")
 } else if ("household" %in% colnames(lonep_raw)) {
@@ -128,34 +112,32 @@ lonep_eu <- lonep_eu %>%
   select(Country = geo, Year = TIME_PERIOD, LoneP_EU = values) %>%
   distinct(Country, Year, .keep_all = TRUE)
 
-# 9. At-Risk-of-Poverty Threshold (ilc_li01) - Fully dynamic
+# 9. At-Risk-of-Poverty Threshold (ilc_li01)
 arpt_raw <- get_eurostat("ilc_li01", time_format = "num", stringsAsFactors = FALSE, update_cache = TRUE)
-
 arpt_eu <- arpt_raw
 
-# 1. Dynamic check for the household column (hhtyp or household)
 hhtyp_col_arpt <- intersect(c("hhtyp", "hhcomp", "household"), colnames(arpt_eu))[1]
-if (!is.na(hhtyp_col_arpt)) {
-  arpt_eu <- arpt_eu %>% filter(!!sym(hhtyp_col_arpt) == "A1")
-}
+if (!is.na(hhtyp_col_arpt)) arpt_eu <- arpt_eu %>% filter(!!sym(hhtyp_col_arpt) == "A1")
 
-# 2. Dynamic check for the currency column (currency or unit)
 curr_col_arpt <- intersect(c("currency", "unit"), colnames(arpt_eu))[1]
-if (!is.na(curr_col_arpt)) {
-  arpt_eu <- arpt_eu %>% filter(!!sym(curr_col_arpt) == "EUR")
-}
+if (!is.na(curr_col_arpt)) arpt_eu <- arpt_eu %>% filter(!!sym(curr_col_arpt) == "EUR")
 
-# 3. Dynamic check for the indicator column (indic_il, indic_is, etc.)
 indic_col_arpt <- intersect(c("indic_il", "indic_is", "indic_li", "indicator"), colnames(arpt_eu))[1]
-if (!is.na(indic_col_arpt)) {
-  arpt_eu <- arpt_eu %>% filter(!!sym(indic_col_arpt) == "LI_C_MD60")
-}
+if (!is.na(indic_col_arpt)) arpt_eu <- arpt_eu %>% filter(!!sym(indic_col_arpt) == "LI_C_MD60")
 
-# 4. Final filtering of countries/years and column selection
 arpt_eu <- arpt_eu %>%
   filter(geo %in% my_data$Country, TIME_PERIOD %in% my_data$Year) %>%
   select(Country = geo, Year = TIME_PERIOD, ARPT_EU = values) %>%
   distinct(Country, Year, .keep_all = TRUE)
+
+# 10. Unemployment Rate - LFS (une_rt_a) 
+unemp_raw <- get_eurostat("une_rt_a", time_format = "num", stringsAsFactors = FALSE, update_cache = TRUE)
+unemp_eu <- unemp_raw %>%
+  # Y15-74 = Ηλικίες 15-74, PC_ACT = Active population rate
+  filter(sex == "T", age == "Y15-74", unit == "PC_ACT", geo %in% my_data$Country, TIME_PERIOD %in% my_data$Year) %>%
+  select(Country = geo, Year = TIME_PERIOD, Unemp_EU = values) %>%
+  distinct(Country, Year, .keep_all = TRUE)
+
 
 # Merge all Eurostat data into a single chain
 eurostat_data <- gini_eu %>%
@@ -166,7 +148,8 @@ eurostat_data <- gini_eu %>%
   full_join(heat_eu, by = c("Country", "Year")) %>%
   full_join(lwi_eu, by = c("Country", "Year")) %>%
   full_join(lonep_eu, by = c("Country", "Year")) %>%
-  full_join(arpt_eu, by = c("Country", "Year"))   # <--- ADDED ARPT
+  full_join(arpt_eu, by = c("Country", "Year")) %>%
+  full_join(unemp_eu, by = c("Country", "Year")) # 
 
 # Merge your custom data with Eurostat's
 validation_df <- my_data %>%
@@ -183,7 +166,10 @@ validation_df <- validation_df %>%
     Diff_House = round(abs(House - House_EU), 1),
     Diff_Heat = round(abs(Heat - Heat_EU), 1),
     Diff_LoneP = round(abs(LoneP - LoneP_EU), 1),
-    Diff_ARPT = round(abs(ARPT - ARPT_EU), 0)      # <--- ADDED ARPT
+    Diff_ARPT = round(abs(ARPT - ARPT_EU), 0),
+    Diff_LWI = round(abs(LWI - LWI_EU), 1),              
+    Diff_Unemp = round(abs(Unemp - Unemp_EU), 1),         
+    Diff_FTE_Unemp = round(abs(FTE_Unemp - Unemp_EU), 1)  
   )
 
 # Save the validation file
@@ -196,10 +182,16 @@ summary_errors <- validation_df %>%
     MAE_Gini   = mean(Diff_Gini, na.rm = TRUE),
     MAE_ARPR   = mean(Diff_ARPR, na.rm = TRUE),
     MAE_S8020  = mean(Diff_S8020, na.rm = TRUE),
-    MAE_MedInc = mean(Diff_MedInc, na.rm = TRUE), # <--- ADDED
+    MAE_MedInc = mean(Diff_MedInc, na.rm = TRUE), 
     MAE_House  = mean(Diff_House, na.rm = TRUE),
     MAE_Heat   = mean(Diff_Heat, na.rm = TRUE),
     MAE_LoneP  = mean(Diff_LoneP, na.rm = TRUE),
-    MAE_ARPT   = mean(Diff_ARPT, na.rm = TRUE)
+    MAE_ARPT   = mean(Diff_ARPT, na.rm = TRUE),
+    MAE_LWI    = mean(Diff_LWI, na.rm = TRUE),        
+    MAE_Unemp  = mean(Diff_Unemp, na.rm = TRUE),       
+    MAE_FTE_Unemp = mean(Diff_FTE_Unemp, na.rm = TRUE) 
   )
 print(summary_errors)
+
+valid_u <- validation_df %>% filter(!is.na(Unemp), !is.na(Unemp_EU))
+cat("N =", nrow(valid_u), "| r =", round(cor(valid_u$Unemp, valid_u$Unemp_EU), 3), "\n")
