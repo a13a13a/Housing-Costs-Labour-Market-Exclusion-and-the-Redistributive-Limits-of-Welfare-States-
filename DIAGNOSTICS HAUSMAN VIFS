@@ -1,14 +1,23 @@
+# ==============================================================================
+# Title:       Table A1 — Pearson Correlation Matrix & Variance Inflation Factors (VIFs)
+# Description: Computes pairwise Pearson correlation coefficients and VIFs for all
+#              explanatory variables in the European macro-panel dataset (2004–2024)
+#              and exports the formatted table to MS Word (.doc) format.
+# ==============================================================================
+
+# Load required packages
 library(stargazer)
 library(plm)
-library(car) # Απαραίτητη βιβλιοθήκη για τον υπολογισμό του VIF
+library(car)  # Required for VIF calculation
 
-# 1. Load the dataset (Βάλε το σωστό path)
+# 1. Load the panel dataset
+# Note: Update the file path if the CSV is located in a different directory
 raw_data <- read.csv2("Thesis_Final_Panel_Dataset_Bulletproof.csv", stringsAsFactors = FALSE)
 
-# 2. Convert numeric columns (handling commas if necessary, όπως στο diagnostics script σου)
+# 2. Ensure numeric formatting (convert comma decimals to dots if necessary)
 numeric_cols <- c("Gini", "LoneP", "LWI", "Unemp", "Tert", "House", "Heat", "Pens", "SocBen")
-for(col in numeric_cols) {
-  if(is.character(raw_data[[col]])) {
+for (col in numeric_cols) {
+  if (is.character(raw_data[[col]])) {
     raw_data[[col]] <- as.numeric(gsub(",", ".", raw_data[[col]]))
   }
 }
@@ -17,43 +26,58 @@ for(col in numeric_cols) {
 pdata <- pdata.frame(raw_data, index = c("Country", "Year"))
 
 cat("\n========================================================\n")
-cat(" The Bulletproof dataset loaded successfully! \n")
+cat(" Panel dataset loaded successfully. \n")
 cat("========================================================\n")
 
-# 4. Υπολογισμός VIF (Χρησιμοποιούμε ακριβώς το ίδιο μοντέλο με το script σου)
+# 4. Compute Variance Inflation Factors (VIFs)
+# Uses the exact set of explanatory variables from the baseline specification
 indep_vars <- "House + Unemp + SocBen + Pens + Tert + LoneP + Heat + LWI"
-vif_model <- lm(as.formula(paste("Gini ~", indep_vars)), data = pdata)
+vif_model  <- lm(as.formula(paste("Gini ~", indep_vars)), data = pdata)
 vif_values <- car::vif(vif_model)
 
-# 5. Προετοιμασία δεδομένων για τον Πίνακα Συσχετίσεων 
-# (ΠΡΟΣΟΧΗ: Κρατάμε ακριβώς την ίδια σειρά μεταβλητών με το VIF)
+# 5. Prepare explanatory variables for the correlation matrix
+# Note: Maintain the exact same variable order as in the VIF model above
 corr_vars <- c("House", "Unemp", "SocBen", "Pens", "Tert", "LoneP", "Heat", "LWI")
 corr_data <- pdata[, corr_vars]
 
-# 6. Υπολογισμός Pairwise Pearson correlations
+# 6. Compute pairwise Pearson correlation matrix
 cormat <- cor(corr_data, use = "pairwise.complete.obs")
 
-# Rename columns and rows for professional formatting in Word
-var_names <- c("1. Housing Cost", "2. Unemployment", "3. Social Benefits", 
-               "4. Pensions", "5. Tertiary Edu.", "6. Lone Parent", 
-               "7. Heating Depr.", "8. Low Work Int.")
+# Assign publication-ready variable labels
+var_names <- c(
+  "1. Housing Cost",
+  "2. Unemployment",
+  "3. Social Benefits",
+  "4. Pensions",
+  "5. Tertiary Edu.",
+  "6. Lone Parent",
+  "7. Heating Depr.",
+  "8. Low Work Int."
+)
 
 colnames(cormat) <- var_names
 rownames(cormat) <- var_names
 
-# 7. Προσθήκη των VIFs ως τελευταία στήλη στον πίνακα συσχετίσεων
+# 7. Append VIF values as the final column
 cormat_with_vifs <- cbind(cormat, VIF = vif_values)
 
-# 8. Export directly to MS Word format
+# 8. Export formatted table to MS Word (.doc)
 out_corr_file <- "TableA1_CorrelationMatrix.doc"
 
-stargazer(cormat_with_vifs, 
-          type = "html", 
-          out = out_corr_file,
-          title = "Table A1: Pearson Correlation Matrix and VIFs of Explanatory Variables",
-          summary = FALSE, 
-          digits = 3, 
-          rownames = TRUE,
-          notes = "Notes: Pairwise Pearson correlation coefficients. Variance Inflation Factor (VIF) values are reported in the final column. No correlation exceeds the conventional multicollinearity threshold (0.80) and all VIF values fall strictly below the conservative threshold of 5, confirming the absence of severe multicollinearity.")
+stargazer(
+  cormat_with_vifs,
+  type     = "html",
+  out      = out_corr_file,
+  title    = "Table A1: Pearson Correlation Matrix and VIFs of Explanatory Variables",
+  summary  = FALSE,
+  digits   = 3,
+  rownames = TRUE,
+  notes    = paste(
+    "Notes: Pairwise Pearson correlation coefficients. Variance Inflation Factor (VIF)",
+    "values are reported in the final column. No correlation exceeds the conventional",
+    "multicollinearity threshold (0.80) and all VIF values fall strictly below the",
+    "conservative threshold of 5, confirming the absence of severe multicollinearity."
+  )
+)
 
-cat("PERFECT! The Correlation Matrix with VIFs was successfully exported to:\n", out_corr_file, "\n")
+cat("Table A1 (Correlation Matrix with VIFs) successfully exported to:", out_corr_file, "\n")
