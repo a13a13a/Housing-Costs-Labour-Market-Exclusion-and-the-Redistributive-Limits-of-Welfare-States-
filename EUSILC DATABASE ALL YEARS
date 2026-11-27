@@ -1,5 +1,5 @@
 # ==============================================================================
-# MASTER SCRIPT: DATABASE CREATION ALL YEARS 
+# MASTER SCRIPT: DATABASE CREATION ALL YEARS ALL COUNTRIES
 # ==============================================================================
 
 library(dplyr)
@@ -186,13 +186,13 @@ for (cntry in countries) {
     if (has_data_211) {
       # LWI
       # Νέο LWI (Μήνες): Άτομα 18-64, Εξαιρούνται Φοιτητές 18-24 ΚΑΙ Συνταξιούχοι 60-64
+      # LWI (Ορισμός πριν το 2021 - Μήνες): Άτομα 18-59, εξαιρούνται Φοιτητές 18-24
       p_lwi <- p_work %>% 
-        filter(age >= 18 & age <= 64) %>% 
+        filter(age >= 18 & age <= 59) %>% 
         mutate(
-          is_student = ifelse(age >= 18 & age <= 24 & !is.na(pl031_val) & pl031_val == 3, 1, 0),
-          is_retired = ifelse(age >= 60 & age <= 64 & !is.na(pl031_val) & pl031_val == 4, 1, 0)
+          is_student = ifelse(age >= 18 & age <= 24 & !is.na(pl031_val) & pl031_val == 3, 1, 0)
         ) %>% 
-        filter(is_student == 0 & is_retired == 0)      
+        filter(is_student == 0)     
       p_lwi$act_m <- rowSums(sapply(p_lwi[month_cols_211], function(x) as_num(x) %in% c(1,2,3,4)), na.rm=T)
       lwi_hh <- p_lwi %>% group_by(hid) %>% summarise(act_hh = sum(act_m, na.rm=T), pot_hh = n() * 12, .groups="drop") %>% mutate(lwi_val = ifelse(pot_hh > 0 & is.finite(act_hh / pot_hh), act_hh / pot_hh, NA))
       
@@ -207,14 +207,13 @@ for (cntry in countries) {
       
     } else if (has_data_pl070) {
       # LWI
-      # Νέο LWI (PL070): Άτομα 18-64, Εξαιρούνται Φοιτητές 18-24 ΚΑΙ Συνταξιούχοι 60-64
+      # LWI (Ορισμός πριν το 2021 - PL070): Άτομα 18-59, εξαιρούνται Φοιτητές 18-24
       p_lwi <- p_work %>% 
-        filter(age >= 18 & age <= 64) %>% 
+        filter(age >= 18 & age <= 59) %>% 
         mutate(
-          is_student = ifelse(age >= 18 & age <= 24 & !is.na(pl031_val) & pl031_val == 3, 1, 0),
-          is_retired = ifelse(age >= 60 & age <= 64 & !is.na(pl031_val) & pl031_val == 4, 1, 0)
+          is_student = ifelse(age >= 18 & age <= 24 & !is.na(pl031_val) & pl031_val == 3, 1, 0)
         ) %>% 
-        filter(is_student == 0 & is_retired == 0)      
+        filter(is_student == 0)     
       p_lwi$act_m <- pmin(12, rowSums(cbind(coalesce(p_lwi$pl070_val, 0), coalesce(p_lwi$pl072_val, 0)), na.rm=TRUE))
       lwi_hh <- p_lwi %>% group_by(hid) %>% summarise(act_hh = sum(act_m, na.rm=T), pot_hh = n() * 12, .groups="drop") %>% mutate(lwi_val = ifelse(pot_hh > 0 & is.finite(act_hh / pot_hh), act_hh / pot_hh, NA))
       
@@ -301,11 +300,11 @@ for (cntry in countries) {
       left_join(p_pens, by="hid") %>% 
       left_join(lwi_hh, by="hid")
     
-    # --- CALCULATE LWI (Νέος Ορισμός) ---
-    df_lwi <- final %>% filter(age < 65, !is.na(w_ind), w_ind > 0, !is.na(lwi_val))
+    # --- CALCULATE LWI (Ορισμός πριν το 2021: ηλικίες 0-59) ---
+    df_lwi <- final %>% filter(age < 60, !is.na(w_ind), w_ind > 0, !is.na(lwi_val))
     
     if(nrow(df_lwi) > 0) {
-      df_lwi <- df_lwi %>% mutate(is_lwi = ifelse(lwi_val <= 0.20, 1, 0))
+      df_lwi <- df_lwi %>% mutate(is_lwi = ifelse(lwi_val < 0.20, 1, 0))
       
       valid_weights_lwi <- sum(df_lwi$w_ind, na.rm = TRUE)
       if(valid_weights_lwi > 0) {
@@ -316,7 +315,6 @@ for (cntry in countries) {
     } else {
       lwi_rate <- NA
     }
-    
     # --- FINAL INDICATOR CALCULATIONS ---
     med_inc <- weighted_median(final$hx090_val, final$w_ind)
     arpt <- 0.6 * med_inc
