@@ -4,17 +4,17 @@
 
 library(stargazer)
 library(dplyr)
-library(plm)
 
 cat("\n========================================================\n")
 cat("           TABLE 1: SUMMARY STATISTICS (DESCRIPTIVES)     \n")
 cat("========================================================\n")
 
 # 1. Load the dataset using a RELATIVE path (essential for reproducibility)
-raw_data <- read.csv2("Thesis_Final_Panel_Dataset_Bulletproof.csv", stringsAsFactors = FALSE)
+my_data <- read.csv2("Thesis_Final_Panel_Dataset_Bulletproof.csv", stringsAsFactors = FALSE)
+
 
 # Convert to data.frame and make column names lowercase for matching
-desc_data_raw <- as.data.frame(raw_data)
+desc_data_raw <- as.data.frame(my_data)
 colnames(desc_data_raw) <- tolower(colnames(desc_data_raw))
 
 # Define variables for the table
