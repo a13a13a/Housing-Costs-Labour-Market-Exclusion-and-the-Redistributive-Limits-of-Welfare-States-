@@ -82,10 +82,10 @@ print(robust_s8020_twfe_DK2)
 
 # ---- maxlag = 3 ----
 cat("\n--- Gini Model (TWFE): maxlag = 3 ---\n")
-print(coeftest(twfe_gini, vcov. = function(x) vcovSCC(x, type = "HC1", maxlag = 3)))
+print(coeftest(twfe_gini, vcov. = function(x) vcovSCC(x, type = "HC3", maxlag = 3)))
 
 cat("\n--- S80/20 Model (TWFE): maxlag = 3 ---\n")
-print(coeftest(twfe_s8020, vcov. = function(x) vcovSCC(x, type = "HC1", maxlag = 3)))
+print(coeftest(twfe_s8020, vcov. = function(x) vcovSCC(x, type = "HC3", maxlag = 3)))
 
 
 cat("\n========================================================\n")
