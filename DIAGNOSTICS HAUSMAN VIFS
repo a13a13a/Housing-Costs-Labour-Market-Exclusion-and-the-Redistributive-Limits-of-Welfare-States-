@@ -1,83 +1,124 @@
-# ==============================================================================
-# Title:       Table A1 — Pearson Correlation Matrix & Variance Inflation Factors (VIFs)
-# Description: Computes pairwise Pearson correlation coefficients and VIFs for all
-#              explanatory variables in the European macro-panel dataset (2004–2024)
-#              and exports the formatted table to MS Word (.doc) format.
-# ==============================================================================
+=======================================================
+> cat("      HAUSMAN TESTS (Fixed vs Random Effects)\n")
+      HAUSMAN TESTS (Fixed vs Random Effects)
+> cat("========================================================\n")
+========================================================
+> 
+> 
+> # ========================================================
+> # ROBUST HAUSMAN TEST: FE vs RE
+> # Same lagged specification as baseline Table 2
+> # ========================================================
+> 
+> # ========================================================
+> # ROBUST HAUSMAN TEST: FE vs RE
+> # ========================================================
+> library(plm)
+> library(lmtest)
+> 
+> # 1. Υπολογισμός των lagged μεταβλητών ΚΑΤΕΥΘΕΙΑΝ στο pdata
+> pdata$House_l1  <- plm::lag(pdata$House, 1)
+> pdata$Unemp_l1  <- plm::lag(pdata$Unemp, 1)
+> pdata$SocBen_l1 <- plm::lag(pdata$SocBen, 1)
+> pdata$Pens_l1   <- plm::lag(pdata$Pens, 1)
+> pdata$Tert_l1   <- plm::lag(pdata$Tert, 1)
+> pdata$LoneP_l1  <- plm::lag(pdata$LoneP, 1)
+> pdata$Heat_l1   <- plm::lag(pdata$Heat, 1)
+> pdata$LWI_l1    <- plm::lag(pdata$LWI, 1)
+> 
+> # 2. Καθαρές φόρμουλες χωρίς τη συνάρτηση lag() εσωτερικά
+> forms <- list(
++   Gini = Gini ~ House_l1 + Unemp_l1 + SocBen_l1 + Pens_l1 + 
++     Tert_l1 + LoneP_l1 + Heat_l1 + LWI_l1,
++   
++   S8020 = S8020 ~ House_l1 + Unemp_l1 + SocBen_l1 + Pens_l1 + 
++     Tert_l1 + LoneP_l1 + Heat_l1 + LWI_l1
++ )
+> 
+> # 3. Εκτέλεση του Robust Hausman Test
+> for (nm in names(forms)) {
++   
++   ht <- phtest(
++     forms[[nm]],
++     data = pdata,
++     model = c("within", "random"),
++     effect = "individual",
++     method = "aux",
++     vcov = function(x) {
++       vcovHC(
++         x,
++         method = "arellano",
++         type = "HC1",
++         cluster = "group"
++       )
++     }
++   )
++   
++   cat("\nDependent Variable:", nm, "\n")
++   print(ht)
++   
++   if (!is.na(ht$p.value) && ht$p.value < 0.05) {
++     cat("Conclusion: Reject RE. Evidence supports FE.\n")
++   } else {
++     cat("Conclusion: Do not reject RE consistency.\n")
++   }
++ }
 
-# Load required packages
-library(stargazer)
-library(plm)
-library(car)  # Required for VIF calculation
+Dependent Variable: Gini 
 
-# 1. Load the panel dataset
-# Note: Update the file path if the CSV is located in a different directory
-raw_data <- read.csv2("Thesis_Final_Panel_Dataset_Bulletproof.csv", stringsAsFactors = FALSE)
+	Regression-based Hausman test, vcov: function(x) {
+	Regression-based Hausman test, vcov: vcovHC(x, method = "arellano", type = "HC1", cluster
+	= "group")
+	Regression-based Hausman test, vcov: }
 
-# 2. Ensure numeric formatting (convert comma decimals to dots if necessary)
-numeric_cols <- c("Gini", "LoneP", "LWI", "Unemp", "Tert", "House", "Heat", "Pens", "SocBen")
-for (col in numeric_cols) {
-  if (is.character(raw_data[[col]])) {
-    raw_data[[col]] <- as.numeric(gsub(",", ".", raw_data[[col]]))
-  }
-}
+data:  forms[[nm]]
+chisq = 59.005, df = 8, p-value = 7.304e-10
+alternative hypothesis: one model is inconsistent
 
-# 3. Convert to a pdata.frame object for panel data handling
-pdata <- pdata.frame(raw_data, index = c("Country", "Year"))
+Conclusion: Reject RE. Evidence supports FE.
 
-cat("\n========================================================\n")
-cat(" Panel dataset loaded successfully. \n")
-cat("========================================================\n")
+Dependent Variable: S8020 
 
-# 4. Compute Variance Inflation Factors (VIFs)
-# Uses the exact set of explanatory variables from the baseline specification
-indep_vars <- "House + Unemp + SocBen + Pens + Tert + LoneP + Heat + LWI"
-vif_model  <- lm(as.formula(paste("Gini ~", indep_vars)), data = pdata)
-vif_values <- car::vif(vif_model)
+	Regression-based Hausman test, vcov: function(x) {
+	Regression-based Hausman test, vcov: vcovHC(x, method = "arellano", type = "HC1", cluster
+	= "group")
+	Regression-based Hausman test, vcov: }
 
-# 5. Prepare explanatory variables for the correlation matrix
-# Note: Maintain the exact same variable order as in the VIF model above
-corr_vars <- c("House", "Unemp", "SocBen", "Pens", "Tert", "LoneP", "Heat", "LWI")
-corr_data <- pdata[, corr_vars]
+data:  forms[[nm]]
+chisq = 90.886, df = 8, p-value = 3.073e-16
+alternative hypothesis: one model is inconsistent
 
-# 6. Compute pairwise Pearson correlation matrix
-cormat <- cor(corr_data, use = "pairwise.complete.obs")
+Conclusion: Reject RE. Evidence supports FE.
+> 
+> cat("\n========================================================\n")
 
-# Assign publication-ready variable labels
-var_names <- c(
-  "1. Housing Cost",
-  "2. Unemployment",
-  "3. Social Benefits",
-  "4. Pensions",
-  "5. Tertiary Edu.",
-  "6. Lone Parent",
-  "7. Heating Depr.",
-  "8. Low Work Int."
-)
+========================================================
+> 
+> # ========================================================
+> # VIF TEST FOR MULTICOLLINEARITY
+> # ========================================================
+> cat("      VARIANCE INFLATION FACTOR (VIF) TEST\n")
+      VARIANCE INFLATION FACTOR (VIF) TEST
+> cat("========================================================\n")
+========================================================
+> 
+> # ========================================================
+> # VIF: LAGGED VARIABLES + COUNTRY FIXED EFFECTS
+> # ========================================================
+> cat("      VARIANCE INFLATION FACTOR (VIF) TEST\n")
+      VARIANCE INFLATION FACTOR (VIF) TEST
+> cat("========================================================\n")
+========================================================
+> 
+> # We run a standard linear model on the pooled data to check VIF
+> vif_model <- lm(as.formula(paste("Gini ~", indep_vars)), data = pdata)
+> vif_results <- vif(vif_model)
+> 
+> print(vif_results)
+   House    Unemp   SocBen     Pens     Tert    LoneP     Heat      LWI 
+1.436867 1.503660 1.195585 1.706770 1.541578 1.709559 1.337822 1.379067 
+> cat("\nCONCLUSION: Max VIF is", max(vif_results), "which is strictly < 5. Severe multicollinearity is formally ruled out.\n")
 
-colnames(cormat) <- var_names
-rownames(cormat) <- var_names
-
-# 7. Append VIF values as the final column
-cormat_with_vifs <- cbind(cormat, VIF = vif_values)
-
-# 8. Export formatted table to MS Word (.doc)
-out_corr_file <- "TableA1_CorrelationMatrix.doc"
-
-stargazer(
-  cormat_with_vifs,
-  type     = "html",
-  out      = out_corr_file,
-  title    = "Table A1: Pearson Correlation Matrix and VIFs of Explanatory Variables",
-  summary  = FALSE,
-  digits   = 3,
-  rownames = TRUE,
-  notes    = paste(
-    "Notes: Pairwise Pearson correlation coefficients. Variance Inflation Factor (VIF)",
-    "values are reported in the final column. No correlation exceeds the conventional",
-    "multicollinearity threshold (0.80) and all VIF values fall strictly below the",
-    "conservative threshold of 5, confirming the absence of severe multicollinearity."
-  )
-)
-
-cat("Table A1 (Correlation Matrix with VIFs) successfully exported to:", out_corr_file, "\n")
+CONCLUSION: Max VIF is 1.709559 which is strictly < 5. Severe multicollinearity is formally ruled out.
+> cat("========================================================\n")
+========================================================
