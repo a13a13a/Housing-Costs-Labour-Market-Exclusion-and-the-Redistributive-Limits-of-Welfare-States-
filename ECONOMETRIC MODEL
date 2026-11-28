@@ -28,14 +28,19 @@ fe_gini <- plm(Gini ~ lag(House, 1) + lag(Unemp, 1) + lag(SocBen, 1) + lag(Pens,
                data = pdata, model = "within", effect = "individual")
 
 # 3. Calculate Arellano Clustered Standard Errors and P-values
-cov_s8020 <- vcovHC(fe_s8020, type = "HC1", cluster = "group")
-cov_gini  <- vcovHC(fe_gini, type = "HC1", cluster = "group")
+cov_s8020 <- vcovHC(fe_s8020, method = "arellano", type = "HC1", cluster = "group")
+cov_gini  <- vcovHC(fe_gini,  method = "arellano", type = "HC1", cluster = "group")
 
-se_s8020  <- sqrt(diag(cov_s8020))
-se_gini   <- sqrt(diag(cov_gini))
+ct_s8020  <- coeftest(fe_s8020, vcov = cov_s8020)
+ct_gini   <- coeftest(fe_gini,  vcov = cov_gini)
 
-p_s8020   <- coeftest(fe_s8020, vcov = cov_s8020)[, 4]
-p_gini    <- coeftest(fe_gini, vcov = cov_gini)[, 4]
+print(ct_s8020)
+print(ct_gini)
+
+se_s8020  <- ct_s8020[, 2]
+se_gini   <- ct_gini[, 2]
+p_s8020   <- ct_s8020[, 4]
+p_gini    <- ct_gini[, 4]
 
 # 4. Export Table 2 using Stargazer (Labels ordered strictly to match plm formula)
 stargazer(fe_s8020, fe_gini,
