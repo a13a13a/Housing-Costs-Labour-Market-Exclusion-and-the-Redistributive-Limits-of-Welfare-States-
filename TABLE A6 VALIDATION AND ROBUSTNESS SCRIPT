@@ -116,11 +116,11 @@ cat("\n========================================================\n")
 cat("  3. CALCULATE STANDARD ERRORS & EXPORT TABLE A6 TO WORD\n")
 cat("========================================================\n")
 
-# Arellano country-clustered standard errors (HC0)
-se_g_base <- as.numeric(sqrt(diag(vcovHC(m_gini_base,  type = "HC0", cluster = "group"))))
-se_g_euro <- as.numeric(sqrt(diag(vcovHC(m_gini_euro,  type = "HC0", cluster = "group"))))
-se_s_base <- as.numeric(sqrt(diag(vcovHC(m_s8020_base, type = "HC0", cluster = "group"))))
-se_s_euro <- as.numeric(sqrt(diag(vcovHC(m_s8020_euro, type = "HC0", cluster = "group"))))
+# Arellano country-clustered standard errors (HC1)
+se_g_base <- as.numeric(sqrt(diag(vcovHC(m_gini_base,  type = "HC1", cluster = "group"))))
+se_g_euro <- as.numeric(sqrt(diag(vcovHC(m_gini_euro,  type = "HC1", cluster = "group"))))
+se_s_base <- as.numeric(sqrt(diag(vcovHC(m_s8020_base, type = "HC1", cluster = "group"))))
+se_s_euro <- as.numeric(sqrt(diag(vcovHC(m_s8020_euro, type = "HC1", cluster = "group"))))
 
 # Export Table A6 to MS Word format
 stargazer(
