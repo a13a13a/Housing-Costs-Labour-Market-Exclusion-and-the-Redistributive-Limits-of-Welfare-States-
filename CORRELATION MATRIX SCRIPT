@@ -1,3 +1,11 @@
+# ==============================================================================
+# TABLE A1: PEARSON CORRELATION MATRIX OF EXPLANATORY VARIABLES
+# ==============================================================================
+# Description: Computes pairwise Pearson correlation coefficients for all
+#              explanatory variables in the panel dataset to assess potential
+#              multicollinearity and exports Table A1 to MS Word format.
+# ==============================================================================
+
 library(stargazer)
 library(plm)
 
