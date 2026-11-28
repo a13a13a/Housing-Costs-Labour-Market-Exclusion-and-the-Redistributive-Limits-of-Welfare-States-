@@ -93,14 +93,14 @@ cat("  6. EXPORT TABLE A3 (TWFE with Driscoll-Kraay SEs, maxlag=2)\n")
 cat("========================================================\n")
 out_tableA3_file <- "TableA3_Robustness_TwoWay_DK.doc"
 
-stargazer(twfe_gini, twfe_s8020,
+stargazer(twfe_s8020, twfe_gini,
           type = "html",
           out = out_tableA3_file,
           title = "Table A3: Robustness Check - Two-Way Fixed Effects with Driscoll-Kraay Standard Errors",
-          column.labels = c("Gini Coefficient", "S80/S20 Ratio"),
+          column.labels = c("S80/S20 Ratio", "Gini Coefficient"),
           dep.var.labels.include = FALSE,
-          se = list(robust_gini_twfe_DK2[,2], robust_s8020_twfe_DK2[,2]),
-          p = list(robust_gini_twfe_DK2[,4], robust_s8020_twfe_DK2[,4]),
+          se = list(robust_s8020_twfe_DK2[, 2], robust_gini_twfe_DK2[, 2]),
+          p = list(robust_s8020_twfe_DK2[, 4], robust_gini_twfe_DK2[, 4]),
           covariate.labels = c("Housing Cost (t-1)", "Unemployment (t-1)", 
                                "Social Benefits (t-1)", "Pensions (t-1)", 
                                "Tertiary Edu. (t-1)", "Lone Parent (t-1)", 
