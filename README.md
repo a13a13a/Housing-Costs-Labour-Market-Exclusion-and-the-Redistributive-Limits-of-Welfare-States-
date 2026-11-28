@@ -29,20 +29,23 @@ The repository contains the following scripts, structured in logical order of ex
 - **`ECONOMETRIC MODEL`**: Contains the baseline one-way fixed effects models with 1-year lagged independent variables. It applies Arellano clustered standard errors and directly exports Table 2.
 
 ### C. Diagnostics & Robustness Checks (Requested during Peer Review)
-- **`DISCOLL KRAAY STANDARD ERRORS`**: Estimates the robustness check models using Two-Way Fixed Effects (Country & Year FE), executes Pesaran CD diagnostic tests, performs a sensitivity analysis on lag structures (`maxlag = 1, 2, 3`) for Driscoll-Kraay standard errors, and robustly exports Table A3.
-- **`DIAGNOSTICS ECONOMETRICS TESTS`**: Executes formal diagnostic tests for heteroskedasticity (Breusch-Pagan) and serial correlation (Breusch-Godfrey/Wooldridge).
-- **`DIAGNOSTICS HAUSMAN VIFS`**: Executes the Hausman specification test and calculates the Variance Inflation Factor (VIF) to rule out multicollinearity.
-- **`ROBUSTNESS FAILED GMM`**: Provided for absolute transparency. This script contains the initially attempted two-step System GMM dynamic panel model, which was ultimately abandoned due to severe instrument proliferation.
+- **`DISCOLL KRAAY STANDARD ERRORS`**: Estimates the robustness check models using Two-Way Fixed Effects (Country & Year FE), executes Pesaran CD diagnostic tests across one-way and two-way specifications, and exports Table A3 (`maxlag = 2`).
+- **`DIAGNOSTICS ECONOMETRICS TESTS`**: Executes formal diagnostic tests for heteroskedasticity (Breusch–Pagan) and serial correlation (Breusch–Godfrey/Wooldridge) across both Gini and S80/S20 models.
+- **`DIAGNOSTICS HAUSMAN VIFS`**: Executes the robust Hausman specification test (FE vs. RE) and calculates the Variance Inflation Factors (VIFs) to rule out multicollinearity.
+- **`ROBUSTNESS FAILED GMM`**: Provided for methodological transparency. This script contains the initially attempted two-step System GMM dynamic panel model (including collapsed instrument matrices and restricted lag depths), which was ultimately abandoned due to severe instrument proliferation.
 
 ### D. Appendix Tables
-- **`TABLE A1 CORRELATION MATRIX`**: Generates and exports the Pearson Correlation Matrix ensuring no pairwise correlation exceeds multicollinearity thresholds (Table A1).
-- **`TABLE A2 DATA COVERAGE`**: Generates and exports the unbalanced panel coverage map and observations (T) per country (Table A2).
+- **`TABLE A1 CORRELATION MATRIX`**: Generates and exports the Pearson Correlation Matrix alongside the Variance Inflation Factors (VIFs) to confirm the absence of severe multicollinearity (Table A1).
+- **`TABLE A2 DATA COVERAGE`**: Generates and exports the unbalanced panel coverage map and yearly observations ($T$) per country (Table A2).
+- **`TABLE A4 DRISCOLL KRAAY SES`**: Estimates the bandwidth sensitivity analysis for the Two-Way Fixed Effects models using Driscoll–Kraay standard errors with alternative maximum lags (`maxlag = 1` and `maxlag = 3`) and exports Table A4.
+- **`TABLE A5 EU-SILC VARIABLE CONSTRUCTION`**: Generates and exports the comprehensive variable-mapping reference table detailing measurement units, raw EU-SILC target variable codes, survey weights, and cross-wave harmonisation rules (Table A5).
+- **`TABLE A6 VALIDATION AND ROBUSTNESS`**: Queries the official Eurostat Housing Cost Overburden series (`ilc_lvho07a`) via API, re-estimates the baseline fixed-effects models for comparison against our bottom-up micro-aggregated indicator, and exports Table A6.
 
 ## 5. Instructions for Use
 1. Save all scripts and the `Thesis_Final_Panel_Dataset_Bulletproof.csv` file in the same local directory.
 2. Set that directory as your Working Directory in R (`setwd("path/to/folder")`) or open the folder as an RStudio Project.
-3. You can execute any script from sections B, C, and D directly, as they seamlessly load the provided `.csv` dataset using relative paths.
-4. The tables (Table 1, Table 2, A1, A2, A3) will be automatically exported to your working directory as formatted `.doc` files.
+3. You can execute any script from sections B, C, and D directly, as they load the provided `.csv` dataset using relative paths.
+4. All tables (Table 1, Table 2, and Tables A1–A6) will be automatically exported to your working directory as formatted `.doc` files.
 
 ## 6. Contact
 For any questions regarding the code or the dataset, please contact the corresponding author.
