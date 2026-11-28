@@ -1,124 +1,76 @@
-=======================================================
-> cat("      HAUSMAN TESTS (Fixed vs Random Effects)\n")
-      HAUSMAN TESTS (Fixed vs Random Effects)
-> cat("========================================================\n")
-========================================================
-> 
-> 
-> # ========================================================
-> # ROBUST HAUSMAN TEST: FE vs RE
-> # Same lagged specification as baseline Table 2
-> # ========================================================
-> 
-> # ========================================================
-> # ROBUST HAUSMAN TEST: FE vs RE
-> # ========================================================
-> library(plm)
-> library(lmtest)
-> 
-> # 1. Υπολογισμός των lagged μεταβλητών ΚΑΤΕΥΘΕΙΑΝ στο pdata
-> pdata$House_l1  <- plm::lag(pdata$House, 1)
-> pdata$Unemp_l1  <- plm::lag(pdata$Unemp, 1)
-> pdata$SocBen_l1 <- plm::lag(pdata$SocBen, 1)
-> pdata$Pens_l1   <- plm::lag(pdata$Pens, 1)
-> pdata$Tert_l1   <- plm::lag(pdata$Tert, 1)
-> pdata$LoneP_l1  <- plm::lag(pdata$LoneP, 1)
-> pdata$Heat_l1   <- plm::lag(pdata$Heat, 1)
-> pdata$LWI_l1    <- plm::lag(pdata$LWI, 1)
-> 
-> # 2. Καθαρές φόρμουλες χωρίς τη συνάρτηση lag() εσωτερικά
-> forms <- list(
-+   Gini = Gini ~ House_l1 + Unemp_l1 + SocBen_l1 + Pens_l1 + 
-+     Tert_l1 + LoneP_l1 + Heat_l1 + LWI_l1,
-+   
-+   S8020 = S8020 ~ House_l1 + Unemp_l1 + SocBen_l1 + Pens_l1 + 
-+     Tert_l1 + LoneP_l1 + Heat_l1 + LWI_l1
-+ )
-> 
-> # 3. Εκτέλεση του Robust Hausman Test
-> for (nm in names(forms)) {
-+   
-+   ht <- phtest(
-+     forms[[nm]],
-+     data = pdata,
-+     model = c("within", "random"),
-+     effect = "individual",
-+     method = "aux",
-+     vcov = function(x) {
-+       vcovHC(
-+         x,
-+         method = "arellano",
-+         type = "HC1",
-+         cluster = "group"
-+       )
-+     }
-+   )
-+   
-+   cat("\nDependent Variable:", nm, "\n")
-+   print(ht)
-+   
-+   if (!is.na(ht$p.value) && ht$p.value < 0.05) {
-+     cat("Conclusion: Reject RE. Evidence supports FE.\n")
-+   } else {
-+     cat("Conclusion: Do not reject RE consistency.\n")
-+   }
-+ }
+# ========================================================
+# DIAGNOSTIC TESTS: ROBUST HAUSMAN TEST & MULTICOLLINEARITY (VIF)
+# ========================================================
 
-Dependent Variable: Gini 
+library(plm)
+library(lmtest)
+library(car)
 
-	Regression-based Hausman test, vcov: function(x) {
-	Regression-based Hausman test, vcov: vcovHC(x, method = "arellano", type = "HC1", cluster
-	= "group")
-	Regression-based Hausman test, vcov: }
+cat("========================================================\n")
+cat("      HAUSMAN TESTS (Fixed vs. Random Effects)\n")
+cat("========================================================\n")
 
-data:  forms[[nm]]
-chisq = 59.005, df = 8, p-value = 7.304e-10
-alternative hypothesis: one model is inconsistent
+# ========================================================
+# ROBUST HAUSMAN TEST: FE vs. RE
+# Uses the same one-year lagged specification as baseline Table 2
+# ========================================================
 
-Conclusion: Reject RE. Evidence supports FE.
+# 1. Compute one-year lagged explanatory variables directly in pdata
+pdata$House_l1  <- plm::lag(pdata$House, 1)
+pdata$Unemp_l1  <- plm::lag(pdata$Unemp, 1)
+pdata$SocBen_l1 <- plm::lag(pdata$SocBen, 1)
+pdata$Pens_l1   <- plm::lag(pdata$Pens, 1)
+pdata$Tert_l1   <- plm::lag(pdata$Tert, 1)
+pdata$LoneP_l1  <- plm::lag(pdata$LoneP, 1)
+pdata$Heat_l1   <- plm::lag(pdata$Heat, 1)
+pdata$LWI_l1    <- plm::lag(pdata$LWI, 1)
 
-Dependent Variable: S8020 
+# 2. Define clean model formulas without inline lag() calls
+forms <- list(
+  Gini = Gini ~ House_l1 + Unemp_l1 + SocBen_l1 + Pens_l1 + 
+    Tert_l1 + LoneP_l1 + Heat_l1 + LWI_l1,
+  
+  S8020 = S8020 ~ House_l1 + Unemp_l1 + SocBen_l1 + Pens_l1 + 
+    Tert_l1 + LoneP_l1 + Heat_l1 + LWI_l1
+)
 
-	Regression-based Hausman test, vcov: function(x) {
-	Regression-based Hausman test, vcov: vcovHC(x, method = "arellano", type = "HC1", cluster
-	= "group")
-	Regression-based Hausman test, vcov: }
+# 3. Execute regression-based robust Hausman tests (Arellano HC1 cluster-robust vcov)
+for (nm in names(forms)) {
+  
+  ht <- phtest(
+    forms[[nm]],
+    data = pdata,
+    model = c("within", "random"),
+    effect = "individual",
+    method = "aux",
+    vcov = function(x) {
+      vcovHC(
+        x,
+        method = "arellano",
+        type = "HC1",
+        cluster = "group"
+      )
+    }
+  )
+  
+  cat("\nDependent Variable:", nm, "\n")
+  print(ht)
+  
+  if (!is.na(ht$p.value) && ht$p.value < 0.05) {
+    cat("Conclusion: Reject RE. Evidence supports FE.\n")
+  } else {
+    cat("Conclusion: Do not reject RE consistency.\n")
+  }
+}
 
-data:  forms[[nm]]
-chisq = 90.886, df = 8, p-value = 3.073e-16
-alternative hypothesis: one model is inconsistent
+cat("\n========================================================\n")
+cat("      VARIANCE INFLATION FACTOR (VIF) TEST\n")
+cat("========================================================\n")
 
-Conclusion: Reject RE. Evidence supports FE.
-> 
-> cat("\n========================================================\n")
+# Estimate a pooled linear model across explanatory variables to compute VIFs (reported in Table A1)
+vif_model <- lm(as.formula(paste("Gini ~", indep_vars)), data = pdata)
+vif_results <- vif(vif_model)
 
-========================================================
-> 
-> # ========================================================
-> # VIF TEST FOR MULTICOLLINEARITY
-> # ========================================================
-> cat("      VARIANCE INFLATION FACTOR (VIF) TEST\n")
-      VARIANCE INFLATION FACTOR (VIF) TEST
-> cat("========================================================\n")
-========================================================
-> 
-> # ========================================================
-> # VIF: LAGGED VARIABLES + COUNTRY FIXED EFFECTS
-> # ========================================================
-> cat("      VARIANCE INFLATION FACTOR (VIF) TEST\n")
-      VARIANCE INFLATION FACTOR (VIF) TEST
-> cat("========================================================\n")
-========================================================
-> 
-> # We run a standard linear model on the pooled data to check VIF
-> vif_model <- lm(as.formula(paste("Gini ~", indep_vars)), data = pdata)
-> vif_results <- vif(vif_model)
-> 
-> print(vif_results)
-   House    Unemp   SocBen     Pens     Tert    LoneP     Heat      LWI 
-1.436867 1.503660 1.195585 1.706770 1.541578 1.709559 1.337822 1.379067 
-> cat("\nCONCLUSION: Max VIF is", max(vif_results), "which is strictly < 5. Severe multicollinearity is formally ruled out.\n")
-
-CONCLUSION: Max VIF is 1.709559 which is strictly < 5. Severe multicollinearity is formally ruled out.
-> cat("========================================================\n")
-========================================================
+print(vif_results)
+cat("\nCONCLUSION: Max VIF is", round(max(vif_results), 3), "which is strictly < 5. Severe multicollinearity is formally ruled out.\n")
+cat("========================================================\n")
